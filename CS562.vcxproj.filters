@@ -1,0 +1,48 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\dependencies\imgui_impl_glfw.cpp">
+      <Filter>dependencies</Filter>
+    </ClCompile>
+    <ClCompile Include="src\dependencies\imgui_impl_vulkan.cpp">
+      <Filter>dependencies</Filter>
+    </ClCompile>
+    <ClCompile Include="src\dependencies\imgui_tables.cpp">
+      <Filter>dependencies</Filter>
+    </ClCompile>
+    <ClCompile Include="src\dependencies\imgui_widgets.cpp">
+      <Filter>dependencies</Filter>
+    </ClCompile>
+    <ClCompile Include="src\dependencies\imgui.cpp">
+      <Filter>dependencies</Filter>
+    </ClCompile>
+    <ClCompile Include="src\dependencies\imgui_draw.cpp">
+      <Filter>dependencies</Filter>
+    </ClCompile>
+    <ClCompile Include="src\debug.cpp" />
+    <ClCompile Include="src\helper.cpp" />
+    <ClCompile Include="src\render.cpp" />
+    <ClCompile Include="src\window.cpp" />
+    <ClCompile Include="src\buffer.cpp" />
+    <ClCompile Include="src\device.cpp" />
+    <ClCompile Include="src\gui.cpp" />
+    <ClCompile Include="src\object.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\uniforms.hpp" />
+    <ClInclude Include="src\debug.hpp" />
+    <ClInclude Include="src\helper.hpp" />
+    <ClInclude Include="src\render.hpp" />
+    <ClInclude Include="src\window.hpp" />
+    <ClInclude Include="src\buffer.hpp" />
+    <ClInclude Include="src\device.hpp" />
+    <ClInclude Include="src\gui.hpp" />
+    <ClInclude Include="src\object.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="dependencies">
+      <UniqueIdentifier>{216cdf63-0ab5-4762-a99c-7cf9369cc0cd}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
