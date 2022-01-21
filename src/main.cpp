@@ -767,9 +767,9 @@ void setupbuffer()
         newobject->create_object(static_cast<unsigned int>(data[0].indices.size()), objvertexBuffer.buf, objindexBuffer.buf);
         objects.push_back(newobject);
 
-        //data = helper::readassimp("data/model/armadillo.ply");
-        //memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, data[0].vertices, data[0].indices, objvertexBuffer2, objindexBuffer2);
-        memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, teapotVertices, teapotIndices, objvertexBuffer2, objindexBuffer2);
+        data = helper::readassimp("data/model/armadillo.ply");
+        memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, data[0].vertices, data[0].indices, objvertexBuffer2, objindexBuffer2);
+        //memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, teapotVertices, teapotIndices, objvertexBuffer2, objindexBuffer2);
         newobject = new object();
         newobject->create_object(static_cast<unsigned int>(data[0].indices.size()), objvertexBuffer2.buf, objindexBuffer2.buf);
         objects.push_back(newobject);

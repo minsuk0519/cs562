@@ -25,6 +25,7 @@
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\object.cpp" />
     <ClCompile Include="src\render.cpp" />
+    <ClCompile Include="src\shapes.cpp" />
     <ClCompile Include="src\window.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -35,6 +36,7 @@
     <ClInclude Include="src\helper.hpp" />
     <ClInclude Include="src\object.hpp" />
     <ClInclude Include="src\render.hpp" />
+    <ClInclude Include="src\shapes.hpp" />
     <ClInclude Include="src\uniforms.hpp" />
     <ClInclude Include="src\window.hpp" />
   </ItemGroup>

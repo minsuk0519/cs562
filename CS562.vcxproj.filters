@@ -28,6 +28,7 @@
     <ClCompile Include="src\device.cpp" />
     <ClCompile Include="src\gui.cpp" />
     <ClCompile Include="src\object.cpp" />
+    <ClCompile Include="src\shapes.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\uniforms.hpp" />
@@ -39,6 +40,7 @@
     <ClInclude Include="src\device.hpp" />
     <ClInclude Include="src\gui.hpp" />
     <ClInclude Include="src\object.hpp" />
+    <ClInclude Include="src\shapes.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="dependencies">
