@@ -38,11 +38,8 @@ constexpr int MAX_LIGHT = 16;
 struct light
 {
 	glm::vec3 position;
-	int lighttype;
-};
-
-struct lightdata
-{
-	light lights[MAX_LIGHT];
-	int lightnum;
+	float radius;
+	glm::vec3 direction;
+	int type;
+	glm::vec3 color;
 };

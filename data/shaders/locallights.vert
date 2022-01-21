@@ -1,13 +1,29 @@
 #version 430
 
-layout(location = 0) in vec2 inPosition;
-layout(location = 1) in vec2 inTexcoord;
+layout(binding = 0) uniform Projection 
+{
+	mat4 viewMat;
+	mat4 projMat;
+} proj;
+
+layout(binding = 1) uniform Object
+{
+	mat4 modelMat;
+	vec3 albedo;
+	float roughness;
+	float metal;
+} obj;
+
+layout(location = 0) in vec3 inPosition;
 
 layout(location = 0) out vec2 outTexcoord;
 
+
 void main()
 {
-    gl_Position = vec4(inPosition, 0.0, 1.0);
+    gl_Position = proj.projMat * proj.viewMat * obj.modelMat * vec4(inPosition, 1.0);
 	
-    outTexcoord = inTexcoord; 
-}
+	outTexcoord = gl_Position.xy;
+	outTexcoord /= 0.5;
+	outTexcoord += vec2(0.5, 0.5);
+ }

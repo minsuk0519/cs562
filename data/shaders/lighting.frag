@@ -23,11 +23,10 @@ layout(binding = 5) uniform camera
 
 const int MAX_LIGHT = 16;
 
-layout(binding = 6) uniform lightdata
+layout(binding = 6) uniform Sun
 {
-	light lights[MAX_LIGHT];
-	int lightnum;
-} lit;
+	light sun;
+};
 
 void main()
 {
@@ -62,16 +61,9 @@ void main()
 	
 	vec3 resultColor = vec3(0,0,0);
 	
-	for(int i = 0; i < lit.lightnum; ++i)
-	{
-		vec3 lightpos = lit.lights[i].position;
-		vec3 lightDir = (lightpos - position);
-		float lightDistance = length(lightpos - position);
-		lightDir /= lightDistance;
-		vec3 radiance = vec3(1.0 / (lightDistance * lightDistance));
-
-		resultColor += calcLight(lightDir, viewDir, normal, albedo, roughness, metal, F0);
-	}
+	vec3 lightDir = normalize(-sun.direction);
+	
+	resultColor += calcLight(lightDir, viewDir, normal, albedo, sun.color, roughness, metal, F0);
 	
     resultColor += vec3(0.1) * albedo;
 	

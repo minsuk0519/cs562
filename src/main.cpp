@@ -102,12 +102,18 @@ VkDescriptorSetLayout gbufferDescriptorSetLayout = VK_NULL_HANDLE;
 VkDescriptorSet gbufferDescriptorSet = VK_NULL_HANDLE;
 VkPipelineLayout gbufferPipelineLayout = VK_NULL_HANDLE;
 
+VkDescriptorSetLayout lightDescriptorSetLayout = VK_NULL_HANDLE;
+VkDescriptorSet lightDescriptorSet = VK_NULL_HANDLE;
+VkPipeline lightPipeline = VK_NULL_HANDLE;
+VkPipelineLayout lightPipelineLayout = VK_NULL_HANDLE;
+
 std::vector<object*> objects;
 
 glm::vec3 camerapos = glm::vec3(0.0f, 2.0f, 5.0f);
 glm::quat rotation = glm::quat(glm::vec3(glm::radians(0.0f), 0, 0));
 
-lightdata lights;
+light sun;
+std::vector<light*> local_light;
 
 const glm::vec3 RIGHT = glm::vec3(1.0f, 0.0f, 0.0f);
 const glm::vec3 FORWARD = glm::vec3(0.0f, 0.0f, -1.0f);
@@ -489,6 +495,7 @@ void createdescriptorset()
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4 },
         });
 
+    //gbuffer pass
     descriptor::create_descriptorset_layout(devicePtr->vulkanDevice, gbufferDescriptorSetLayout, gbufferDescriptorSet, vulkanDescriptorPool, {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 1},
@@ -499,6 +506,7 @@ void createdescriptorset()
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, {uniformbuffer1.buf, 0, uniformbuffer1.range}, {}},
         });
 
+    //lighting pass
     descriptor::create_descriptorset_layout(devicePtr->vulkanDevice, vulkanDescriptorSetLayout, vulkanDescriptorSet, vulkanDescriptorPool, {
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0},
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1},
@@ -517,6 +525,29 @@ void createdescriptorset()
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 4, {uniformbuffer2.buf, 0, uniformbuffer2.range}, {}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 5, {uniformbuffer3.buf, 0, uniformbuffer3.range}, {}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 6, {uniformbuffer4.buf, 0, uniformbuffer4.range}, {}},
+        });
+
+    //local light pass
+    descriptor::create_descriptorset_layout(devicePtr->vulkanDevice, lightDescriptorSetLayout, lightDescriptorSet, vulkanDescriptorPool, {
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT, 1},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 2},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 3},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 4},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 5},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 6},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 7},
+        });
+
+    descriptor::write_descriptorset(devicePtr->vulkanDevice, lightDescriptorSet, {
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, {uniformbuffer0.buf, 0, uniformbuffer0.range}, {}},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, {uniformbuffer1.buf, 0, uniformbuffer1.range}, {}},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, {}, {vulkanSampler, posframebufferimage.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, {}, {vulkanSampler, normframebufferimage.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, {}, {vulkanSampler, texframebufferimage.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, {}, {vulkanSampler, albedoframebufferimage.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 6, {uniformbuffer3.buf, 0, uniformbuffer3.range}, {}},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 7, {uniformbuffer4.buf, 0, uniformbuffer4.range}, {}},
         });
 }
 
@@ -598,6 +629,43 @@ void createPipeline()
                 {"data/shaders/gbuffer.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
             });
     }
+
+    {
+        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, lightDescriptorSetLayout, lightPipelineLayout);
+
+        VkGraphicsPipelineCreateInfo pipelineCreateInfo{};
+        pipelineCreateInfo.layout = lightPipelineLayout;
+        pipelineCreateInfo.renderPass = vulkanRenderPass;
+
+        std::vector<VkVertexInputAttributeDescription> vertexinputs = {
+            { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 },
+        };
+
+        VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo = pipeline::getInputAssemblyCreateInfo();
+        VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo = pipeline::getRasterizationCreateInfo(VK_CULL_MODE_BACK_BIT);
+        VkPipelineColorBlendAttachmentState pipelinecolorblendattachment = pipeline::getColorBlendAttachment(VK_TRUE);
+        std::vector<VkPipelineColorBlendAttachmentState> pipelinecolorblendattachments = { pipelinecolorblendattachment };
+        VkPipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo = pipeline::getColorBlendCreateInfo(static_cast<uint32_t>(pipelinecolorblendattachments.size()), pipelinecolorblendattachments.data());
+        VkPipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo = pipeline::getMultisampleCreateInfo(VK_SAMPLE_COUNT_1_BIT);
+        VkViewport viewport = pipeline::getViewport(windowPtr->windowWidth, windowPtr->windowHeight);
+        VkRect2D scissor = pipeline::getScissor(windowPtr->windowWidth, windowPtr->windowHeight);
+        VkPipelineViewportStateCreateInfo pipelineViewportStateCreateInfo = pipeline::getViewportCreateInfo(&viewport, &scissor);
+        VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo = pipeline::getDepthStencilCreateInfo(VK_FALSE, VK_COMPARE_OP_LESS_OR_EQUAL);
+        VkVertexInputBindingDescription pipelinevertexinputbinding = pipeline::getVertexinputbindingDescription(sizeof(glm::vec3));
+        VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo = pipeline::getVertexinputAttributeDescription(&pipelinevertexinputbinding, vertexinputs);
+
+        pipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
+        pipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
+        pipelineCreateInfo.pColorBlendState = &pipelineColorBlendStateCreateInfo;
+        pipelineCreateInfo.pMultisampleState = &pipelineMultisampleStateCreateInfo;
+        pipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
+        pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
+        pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
+        pipeline::create_pipieline(devicePtr->vulkanDevice, pipelineCreateInfo, lightPipeline, vulkanPipelineCache, {
+                {"data/shaders/locallights.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+                {"data/shaders/locallights.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
+            });
+    }
 }
 
 void createcommandbuffer()
@@ -650,7 +718,7 @@ void updatebuffer()
     props[1].albedoColor = objproperties.albedoColor;
     props[1].metallic = objproperties.metallic;
     props[1].roughness = objproperties.roughness;
-    props[1].modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 2.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), -a, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.01f));
+    props[1].modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 2.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), -a, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f));
 
     void* data1;
     vkMapMemory(devicePtr->vulkanDevice, uniformbuffer1.memory, 0, uniformbuffer1.range, 0, &data1);
@@ -675,15 +743,14 @@ void updatebuffer()
 
     void* data4;
     vkMapMemory(devicePtr->vulkanDevice, uniformbuffer4.memory, 0, uniformbuffer4.size, 0, &data4);
-    memcpy(data4, &lights, uniformbuffer4.size);
+    memcpy(data4, &sun, uniformbuffer4.size);
     vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffer4.memory);
 }
 
 void setupbuffer()
 {
-    lights.lights[0].position = glm::vec3(0, 5.0, -2.5);
-    lights.lights[1].position = glm::vec3(-2.5, 5.0, 0);
-    lights.lightnum = 2;
+    sun.direction = glm::vec3(1.0f, -1.0f, 0.0);
+    sun.color = glm::vec3(10.0f, 10.0f, 10.0f);
 
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, windowPtr->windowWidth, windowPtr->windowHeight, posframebufferimage);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, windowPtr->windowWidth, windowPtr->windowHeight, normframebufferimage);
@@ -767,11 +834,14 @@ void setupbuffer()
         newobject->create_object(static_cast<unsigned int>(data[0].indices.size()), objvertexBuffer.buf, objindexBuffer.buf);
         objects.push_back(newobject);
 
-        data = helper::readassimp("data/model/armadillo.ply");
-        memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, data[0].vertices, data[0].indices, objvertexBuffer2, objindexBuffer2);
-        //memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, teapotVertices, teapotIndices, objvertexBuffer2, objindexBuffer2);
+        //data = helper::readassimp("data/model/armadillo.ply");
+        //memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, data[0].vertices, data[0].indices, objvertexBuffer2, objindexBuffer2);
+        //newobject = new object();
+        //newobject->create_object(static_cast<unsigned int>(data[0].indices.size()), objvertexBuffer2.buf, objindexBuffer2.buf);
+        helper::vertindex d = generateSphere();
+        memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, d.vertices, d.indices, objvertexBuffer2, objindexBuffer2);
         newobject = new object();
-        newobject->create_object(static_cast<unsigned int>(data[0].indices.size()), objvertexBuffer2.buf, objindexBuffer2.buf);
+        newobject->create_object(static_cast<unsigned int>(d.indices.size()), objvertexBuffer2.buf, objindexBuffer2.buf);
         objects.push_back(newobject);
     }
 
@@ -779,7 +849,7 @@ void setupbuffer()
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(ObjectProperties)*/128, 2, uniformbuffer1);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(lightSetting), 1, uniformbuffer2);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(camera), 1, uniformbuffer3);
-    memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(lightdata), 1, uniformbuffer4);
+    memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(light), 1, uniformbuffer4);
 
     updatebuffer();
 }
@@ -893,10 +963,13 @@ void close()
 
     pipeline::closepipeline(devicePtr->vulkanDevice, vulkanPipeline);
     pipeline::closepipeline(devicePtr->vulkanDevice, gbufferPipeline);
+    pipeline::closepipeline(devicePtr->vulkanDevice, lightPipeline);
     pipeline::close_pipelinelayout(devicePtr->vulkanDevice, vulkanPipelineLayout);
     pipeline::close_pipelinelayout(devicePtr->vulkanDevice, gbufferPipelineLayout);
+    pipeline::close_pipelinelayout(devicePtr->vulkanDevice, lightPipelineLayout);
     descriptor::close_descriptorset_layout(devicePtr->vulkanDevice, vulkanDescriptorSetLayout);
     descriptor::close_descriptorset_layout(devicePtr->vulkanDevice, gbufferDescriptorSetLayout);
+    descriptor::close_descriptorset_layout(devicePtr->vulkanDevice, lightDescriptorSetLayout);
     descriptor::close_descriptorpool(devicePtr->vulkanDevice, vulkanDescriptorPool);
     for (auto fb : vulkanFramebuffers)
     {
@@ -1128,6 +1201,20 @@ int main(void)
             vkCmdDrawIndexed(vulkanCommandBuffers[imageIndex], 6, 1, 0, 0, 0);
 
             guiPtr->render(vulkanCommandBuffers[imageIndex]);
+
+            vkCmdBindPipeline(vulkanCommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, lightPipeline);
+            std::array<uint32_t, 1> offset;
+
+            unsigned int i = 0;
+            for (auto obj : objects)
+            {
+                offset = { i * 128 };
+                //vkCmdBindDescriptorSets(vulkanCommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gbufferPipelineLayout, 0, 1, &gbufferDescriptorSet, 1, offset.data());
+
+                //obj->draw_object(gbufferCommandbuffer);
+                ++i;
+            }
+
 
             vkCmdEndRenderPass(vulkanCommandBuffers[imageIndex]);
 

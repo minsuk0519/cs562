@@ -1,7 +1,10 @@
 struct light
 {
 	vec3 position;
+	float radius;
+	vec3 direction;
 	int type;
+	vec3 color;
 };
 
 const float PI = 3.14159265358979;
@@ -31,8 +34,14 @@ vec3 calFresnel(float cosine, vec3 F0)
 	return F0 + (1.0 - F0) * pow(1.0 - cosine, 5.0);
 }
 
-vec3 calcLight(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 albedo, float roughness, float metal, vec3 F0)
+vec3 calcLight(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 albedo, vec3 lightColor, float roughness, float metal, vec3 F0)
 {
+	//vec3 lightpos = lit.lights[i].position;
+	//vec3 lightDir = (lightpos - position);
+	//float lightDistance = length(lightpos - position);
+	//lightDir /= lightDistance;
+	//vec3 radiance = vec3(1.0 / (lightDistance * lightDistance));
+
 	vec3 halfway = normalize(viewDir + lightDir);
 	
 	float NdotV = max(dot(normal, viewDir), 0.0);
@@ -49,5 +58,5 @@ vec3 calcLight(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 albedo, float roug
 	vec3 kD = vec3(1.0) - kS;
 	kD *= 1.0 - metal;	  
 
-	return (kD * albedo / PI + specular) * NdotL;// * radiance;
+	return (kD * albedo / PI + specular) * NdotL * lightColor;// * radiance;
 }
