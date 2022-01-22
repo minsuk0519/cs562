@@ -1,5 +1,8 @@
 //declare uniform structures on shaders
 #include <glm/glm.hpp>
+#include <array>
+
+#include "buffer.hpp"
 
 struct Projection
 {
@@ -43,3 +46,15 @@ struct light
 	int type;
 	glm::vec3 color;
 };
+
+enum UNIFORM_INDEX
+{
+	UNIFORM_INDEX_PROJECTION = 0,
+	UNIFORM_INDEX_OBJECT,
+	UNIFORM_INDEX_LIGHT_SETTING,
+	UNIFORM_INDEX_CAMERA,
+	UNIFORM_INDEX_LIGHT,
+	UNIFORM_INDEX_MAX,
+};
+
+std::array<Buffer, UNIFORM_INDEX_MAX> uniformbuffers;

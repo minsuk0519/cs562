@@ -95,10 +95,10 @@ VkPipelineColorBlendAttachmentState pipeline::getColorBlendAttachment(VkBool32 b
         VK_COLOR_COMPONENT_A_BIT;
     pipelineColorBlendAttachmentState.blendEnable = blendenable;
     pipelineColorBlendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-    pipelineColorBlendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+    pipelineColorBlendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
     pipelineColorBlendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
     pipelineColorBlendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    pipelineColorBlendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    pipelineColorBlendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
     pipelineColorBlendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
 
     return pipelineColorBlendAttachmentState;

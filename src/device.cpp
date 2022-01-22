@@ -205,13 +205,19 @@ bool device::end_commandbuffer_submit(VkQueue graphicsqueue, VkCommandBuffer com
     if (vkQueueSubmit(graphicsqueue, 1, &submitInfo, fence) != VK_SUCCESS)
     {
         std::cout << "failed to submit queue" << std::endl;
-        return -1;
+        return false;
+    }
+
+    if (vkQueueWaitIdle(graphicsqueue) != VK_SUCCESS)
+    {
+        std::cout << "cannot wait queue" << std::endl;
+        return false;
     }
 
     if (vkWaitForFences(vulkanDevice, 1, &fence, VK_TRUE, 1000000) != VK_SUCCESS)
     {
         std::cout << "failed to wait fence" << std::endl;
-        return -1;
+        return false;
     }
 
     vkDestroyFence(vulkanDevice, fence, nullptr);

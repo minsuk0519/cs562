@@ -6,25 +6,28 @@ layout(location = 0) out vec4 outColor;
 
 layout(location = 0) in vec2 outTexcoord;
 
-layout(binding = 2) uniform sampler2D posTex;
-layout(binding = 3) uniform sampler2D normTex;
-layout(binding = 4) uniform sampler2D texTex;
-layout(binding = 5) uniform sampler2D albedoTex;
+layout(binding = 1) uniform sampler2D posTex;
+layout(binding = 2) uniform sampler2D normTex;
+layout(binding = 3) uniform sampler2D texTex;
+layout(binding = 4) uniform sampler2D albedoTex;
 
-layout(binding = 6) uniform camera
+layout(binding = 5) uniform camera
 {
 	vec3 position;
 } cam;
 
 const int MAX_LIGHT = 16;
 
-layout(binding = 7) uniform lightdata
+layout(binding = 6) uniform lightdata
 {
 	light lit;
 };
 
 void main()
 {	
+	outColor = vec4(100, 100, 100, 1.0);
+	return;
+
 	vec3 position = texture(posTex, outTexcoord).xyz;
 	vec3 normal = normalize(texture(normTex, outTexcoord).xyz);
 	vec4 texTexData = texture(texTex, outTexcoord);
@@ -36,8 +39,12 @@ void main()
 	vec3 litTopos = position - lit.position;
 	if(length(litTopos) > lit.radius)
 	{
-		discard;
+		outColor = vec4(0.0, 1.0, 0.0, 0.1);
+		return;
 	}
+	
+	outColor = vec4(1.1,0.1,0,0.1);
+	return;
 	
 	vec3 viewDir = cam.position - position;
 	

@@ -4,3 +4,5 @@
 #include "helper.hpp"
 
 helper::vertindex generateSphere();
+
+helper::vertindex generateSphereposonly();

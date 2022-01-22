@@ -51,3 +51,39 @@ helper::vertindex generateSphere()
 
     return result;
 }
+
+helper::vertindex generateSphereposonly()
+{
+    const int n = 16;
+
+    helper::vertindex result;
+
+    for (int i = 0; i <= n * 2; i++)
+    {
+        float s = i * 2.0f * PI / float(n * 2);
+        for (int j = 0; j <= n; j++)
+        {
+            float t = j * PI / float(n);
+            float x = cos(s) * sin(t);
+            float y = sin(s) * sin(t);
+            float z = cos(t);
+
+            result.vertices.push_back(x);
+            result.vertices.push_back(y);
+            result.vertices.push_back(z);
+
+            if (i > 0 && j > 0)
+            {
+                result.indices.push_back((i - 1) * (n + 1) + (j - 1));
+                result.indices.push_back((i - 1) * (n + 1) + (j));
+                result.indices.push_back((i) * (n + 1) + (j));
+
+                result.indices.push_back((i - 1) * (n + 1) + (j - 1));
+                result.indices.push_back((i) * (n + 1) + (j));
+                result.indices.push_back((i) * (n + 1) + (j - 1));
+            }
+        }
+    }
+
+    return result;
+}
