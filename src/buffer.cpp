@@ -126,8 +126,10 @@ bool memory::create_vertex_index_buffer(VkDevice vulkandevice, VkQueue graphicsq
     return true;
 }
 
-bool memory::create_depth_image(VkDevice vulkandevice, VkFormat depthformat, uint32_t width, uint32_t height, Image& image)
+bool memory::create_depth_image(device* devicePtr, VkQueue graphicsqueue, VkFormat depthformat, uint32_t width, uint32_t height, Image& image)
 {
+    VkDevice vulkandevice = devicePtr->vulkanDevice;
+
     VkImageCreateInfo imageCreateInfo{};
     imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -138,6 +140,7 @@ bool memory::create_depth_image(VkDevice vulkandevice, VkFormat depthformat, uin
     imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     imageCreateInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
     if (vkCreateImage(vulkandevice, &imageCreateInfo, nullptr, &image.image) != VK_SUCCESS)
     {
@@ -165,6 +168,33 @@ bool memory::create_depth_image(VkDevice vulkandevice, VkFormat depthformat, uin
         std::cout << "failed to bind image memory!" << std::endl;
         return false;
     }
+
+    VkCommandBuffer commandBuffer;
+
+    devicePtr->create_single_commandbuffer_begin(commandBuffer);
+
+    VkImageSubresourceRange subresourceRange = {};
+    subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+    subresourceRange.baseMipLevel = 0;
+    subresourceRange.levelCount = 1;
+    subresourceRange.layerCount = 1;
+
+    VkImageMemoryBarrier imageMemoryBarrier{};
+    imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    imageMemoryBarrier.image = image.image;
+    imageMemoryBarrier.subresourceRange = subresourceRange;
+    imageMemoryBarrier.srcAccessMask = 0;
+    imageMemoryBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
+
+    devicePtr->end_commandbuffer_submit(graphicsqueue, commandBuffer);
+
+
 
     VkImageViewCreateInfo imageviewCreateInfo{};
     imageviewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;

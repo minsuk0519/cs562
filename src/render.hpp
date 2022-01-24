@@ -35,12 +35,20 @@ namespace pipeline
 
 namespace renderpass
 {
+	enum attachmentflag
+	{
+		ATTACHMENT_NONE = 0x0000,
+		ATTACHMENT_FINAL_SWAPCHAIN = 0x0001,
+		ATTACHMENT_DEPTH = 0x0002,
+		ATTACHMENT_NO_CLEAR_INITIAL = 0x0004,
+	};
+	typedef uint32_t attachmentflagbits;
+
 	struct attachmentDesc
 	{
 		VkFormat format;
 		uint32_t location;
-		bool swapchain;
-		bool depth;
+		attachmentflagbits flag;
 	};
 
 	bool create_renderpass(VkDevice device, VkRenderPass& renderpass, std::vector<attachmentDesc> attachmentDescriptions);

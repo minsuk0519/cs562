@@ -208,15 +208,15 @@ bool renderpass::create_renderpass(VkDevice device, VkRenderPass& renderpass, st
         VkAttachmentDescription attachmentdescription{};
         attachmentdescription.format = attachdesc.format;
         attachmentdescription.samples = VK_SAMPLE_COUNT_1_BIT;
-        attachmentdescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        attachmentdescription.loadOp = (attachdesc.flag & ATTACHMENT_NO_CLEAR_INITIAL) ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_CLEAR;
         attachmentdescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
         attachmentdescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         attachmentdescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        attachmentdescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        attachmentdescription.finalLayout = (attachdesc.swapchain) ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : (attachdesc.depth) ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        attachmentdescription.initialLayout = (attachdesc.flag & ATTACHMENT_DEPTH) ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
+        attachmentdescription.finalLayout = (attachdesc.flag & ATTACHMENT_FINAL_SWAPCHAIN) ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : (attachdesc.flag & ATTACHMENT_DEPTH) ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
         renderpassAttachments.push_back(attachmentdescription);
-        if (attachdesc.depth) 
+        if (attachdesc.flag & ATTACHMENT_DEPTH)
         {
             depthReference.attachment = attachdesc.location;
         }

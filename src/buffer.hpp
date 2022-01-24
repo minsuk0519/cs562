@@ -43,7 +43,7 @@ public:
 
     bool create_vertex_index_buffer(VkDevice vulkandevice, VkQueue graphicsqueue, device* devicePtr, std::vector<float> vertices, std::vector<uint32_t> indices, VertexBuffer& vertex);
 
-    bool create_depth_image(VkDevice vulkandevice, VkFormat depthformat, uint32_t width, uint32_t height, Image& image);
+    bool create_depth_image(device* devicePtr, VkQueue graphicsqueue, VkFormat depthformat, uint32_t width, uint32_t height, Image& image);
     bool create_fb_image(VkDevice vulkandevice, VkFormat format, uint32_t width, uint32_t height, Image& image);
 
     void free_buffer(VkDevice device, Buffer& buf);

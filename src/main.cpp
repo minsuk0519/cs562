@@ -370,7 +370,7 @@ void createDepth()
         }
     }
 
-    memPtr->create_depth_image(devicePtr->vulkanDevice, vulkanDepthFormat, windowPtr->windowWidth, windowPtr->windowHeight, depthImage);
+    memPtr->create_depth_image(devicePtr, vulkanGraphicsQueue, vulkanDepthFormat, windowPtr->windowWidth, windowPtr->windowHeight, depthImage);
 
     VkSamplerCreateInfo samplerCreateInfo{};
     samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -465,9 +465,9 @@ void createSemaphoreFence()
 void createRenderpass()
 {
     renderpass::create_renderpass(devicePtr->vulkanDevice, vulkanRenderPass, {
-    {vulkanColorFormat, 0, true, false},
-    {vulkanDepthFormat, 1, false, true},
-        });
+        {vulkanColorFormat, 0, renderpass::ATTACHMENT_FINAL_SWAPCHAIN },
+        {vulkanDepthFormat, 1, renderpass::ATTACHMENT_DEPTH | renderpass::ATTACHMENT_NO_CLEAR_INITIAL},
+    });
 
     vulkanFramebuffers.resize(swapchainImageCount);
     for (uint32_t i = 0; i < swapchainImageCount; i++)
@@ -479,16 +479,16 @@ void createRenderpass()
 
     //gbuffer pass
     renderpass::create_renderpass(devicePtr->vulkanDevice, gbufferRenderPass, {
-        {VK_FORMAT_R16G16B16A16_SFLOAT, 0, false, false},
-        {VK_FORMAT_R16G16B16A16_SFLOAT, 1, false, false},
-        {VK_FORMAT_R16G16B16A16_SFLOAT, 2, false, false},
-        {VK_FORMAT_R16G16B16A16_SFLOAT, 3, false, false},
-        {vulkanDepthFormat, 4, false, true},
-        });
+        {VK_FORMAT_R16G16B16A16_SFLOAT, 0, renderpass::ATTACHMENT_NONE},
+        {VK_FORMAT_R16G16B16A16_SFLOAT, 1, renderpass::ATTACHMENT_NONE},
+        {VK_FORMAT_R16G16B16A16_SFLOAT, 2, renderpass::ATTACHMENT_NONE},
+        {VK_FORMAT_R16G16B16A16_SFLOAT, 3, renderpass::ATTACHMENT_NONE},
+        {vulkanDepthFormat, 4, renderpass::ATTACHMENT_DEPTH},
+    });
 
     renderpass::create_framebuffer(devicePtr->vulkanDevice, gbufferRenderPass, gbufferFramebuffer, windowPtr->windowWidth, windowPtr->windowHeight, {
         posframebufferimage.imageView, normframebufferimage.imageView, texframebufferimage.imageView, albedoframebufferimage.imageView, depthImage.imageView
-        });
+    });
 }
 
 void createdescriptorset()
@@ -704,7 +704,7 @@ void createPipeline()
         VkViewport viewport = pipeline::getViewport(windowPtr->windowWidth, windowPtr->windowHeight);
         VkRect2D scissor = pipeline::getScissor(windowPtr->windowWidth, windowPtr->windowHeight);
         VkPipelineViewportStateCreateInfo pipelineViewportStateCreateInfo = pipeline::getViewportCreateInfo(&viewport, &scissor);
-        VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo = pipeline::getDepthStencilCreateInfo(VK_FALSE, VK_COMPARE_OP_LESS_OR_EQUAL);
+        VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo = pipeline::getDepthStencilCreateInfo(VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);
         VkVertexInputBindingDescription pipelinevertexinputbinding = pipeline::getVertexinputbindingDescription(sizeof(glm::vec3));
         VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo = pipeline::getVertexinputAttributeDescription(&pipelinevertexinputbinding, vertexinputs);
 
@@ -871,9 +871,9 @@ void setupbuffer()
         //newobject = new object();
         //newobject->create_object(static_cast<unsigned int>(data[0].indices.size()), objvertexBuffer2.buf, objindexBuffer2.buf);
         helper::vertindex d = generateSphere();
-        memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, d.vertices, d.indices, vertexbuffers[VERTEX_INDEX_CUBE]);
+        memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, d.vertices, d.indices, vertexbuffers[VERTEX_INDEX_SPHERE]);
         newobject = new object();
-        newobject->create_object(static_cast<unsigned int>(d.indices.size()), vertexbuffers[VERTEX_INDEX_CUBE]);
+        newobject->create_object(static_cast<unsigned int>(d.indices.size()), vertexbuffers[VERTEX_INDEX_SPHERE]);
         objects.push_back(newobject);
 
         spherepos = generateSphereposonly();
@@ -1277,8 +1277,6 @@ int main(void)
                 std::array<uint32_t, 1> dynamicoffsets = { 0 };
                 for (auto lit : local_light)
                 {
-                    VkDeviceSize vertexoffsets[1] = { 0 };
-
                     dynamicoffsets[0] += 64;
                     vkCmdBindDescriptorSets(vulkanCommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, lightPipelineLayout, 0, 1, &lightDescriptorSet, static_cast<uint32_t>(dynamicoffsets.size()), dynamicoffsets.data());
 
@@ -1293,7 +1291,6 @@ int main(void)
                 for (auto lit : local_light)
                 {
                     vkCmdBindDescriptorSets(vulkanCommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, diffusePipelineLayout, 0, 1, &diffuseDescriptorSet, static_cast<uint32_t>(dynamicoffsets.size()), dynamicoffsets.data());
-                    VkDeviceSize vertexoffset = 0;
 
                     render::draw(vulkanCommandBuffers[imageIndex], vertexbuffers[VERTEX_INDEX_SPHERE_POSONLY]);
 
