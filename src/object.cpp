@@ -1,10 +1,16 @@
 #include "object.hpp"
+#include "uniforms.hpp"
 
-void object::create_object(unsigned int count, VkBuffer vert, VkBuffer index)
+object::object()
+{
+    prop = new ObjectProperties();
+}
+
+void object::create_object(unsigned int count, VertexBuffer& buffer)
 {
     indicescount = count;
-    vertexbuffer = vert;
-    indexbuffer = index;
+    vertexbuffer = buffer.vertexbuffer.buf;
+    indexbuffer = buffer.indexbuffer.buf;
 }
 
 void object::draw_object(VkCommandBuffer commandbuffer)

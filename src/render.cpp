@@ -410,3 +410,12 @@ void descriptor::close_descriptorset_layout(VkDevice device, VkDescriptorSetLayo
 {
     vkDestroyDescriptorSetLayout(device, descriptorsetlayout, VK_NULL_HANDLE);
 }
+
+void render::draw(VkCommandBuffer commandbuffer, VertexBuffer vertexbuffer)
+{
+    VkDeviceSize vertexoffsets[1] = { 0 };
+
+    vkCmdBindVertexBuffers(commandbuffer, 0, 1, &vertexbuffer.vertexbuffer.buf, vertexoffsets);
+    vkCmdBindIndexBuffer(commandbuffer, vertexbuffer.indexbuffer.buf, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(commandbuffer, vertexbuffer.indexsize, 1, 0, 0, 0);
+}

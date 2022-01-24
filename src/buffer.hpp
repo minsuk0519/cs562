@@ -22,6 +22,13 @@ struct Image
     VkDeviceMemory memory;
 };
 
+struct VertexBuffer
+{
+    Buffer vertexbuffer;
+    Buffer indexbuffer;
+    uint32_t indexsize;
+};
+
 class memory
 {
 private:
@@ -34,7 +41,7 @@ public:
 
     bool create_buffer(VkDevice device, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryproperty, VkDeviceSize size, uint32_t num, Buffer& buffer, void* data = nullptr);
 
-    bool create_vertex_index_buffer(VkDevice vulkandevice, VkQueue graphicsqueue, device* devicePtr, std::vector<float> vertices, std::vector<uint32_t> indices, Buffer& vertex, Buffer& index);
+    bool create_vertex_index_buffer(VkDevice vulkandevice, VkQueue graphicsqueue, device* devicePtr, std::vector<float> vertices, std::vector<uint32_t> indices, VertexBuffer& vertex);
 
     bool create_depth_image(VkDevice vulkandevice, VkFormat depthformat, uint32_t width, uint32_t height, Image& image);
     bool create_fb_image(VkDevice vulkandevice, VkFormat format, uint32_t width, uint32_t height, Image& image);

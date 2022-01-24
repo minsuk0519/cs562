@@ -73,3 +73,8 @@ namespace descriptor
 	void close_descriptorpool(VkDevice device, VkDescriptorPool& descriptorpool);
 	void close_descriptorset_layout(VkDevice device, VkDescriptorSetLayout& descriptorsetlayout);
 };
+
+namespace render
+{
+	void draw(VkCommandBuffer commandbuffer, VertexBuffer vertexbuffer);
+}

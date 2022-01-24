@@ -12,7 +12,7 @@ struct Projection
 
 struct ObjectProperties
 {
-	glm::mat4 modelMat;
+	glm::mat4 modelMat = glm::mat4(1.0f);
 	glm::vec3 albedoColor = glm::vec3(1.0f, 1.0f, 1.0f);;
 	float roughness = 0.5f;
 	float metallic = 0.5f;
@@ -57,4 +57,12 @@ enum UNIFORM_INDEX
 	UNIFORM_INDEX_MAX,
 };
 
-std::array<Buffer, UNIFORM_INDEX_MAX> uniformbuffers;
+enum VERTEX_INDEX
+{
+	VERTEX_INDEX_BUNNY = 0,
+	VERTEX_INDEX_SPHERE,
+	VERTEX_INDEX_SPHERE_POSONLY,
+	VERTEX_INDEX_CUBE,
+	VERTEX_INDEX_FULLSCREENQUAD,
+	VERTEX_INDEX_MAX,
+};

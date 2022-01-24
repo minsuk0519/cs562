@@ -89,7 +89,7 @@ bool memory::create_buffer(VkDevice device, VkBufferUsageFlags usage, VkMemoryPr
     return true;
 }
 
-bool memory::create_vertex_index_buffer(VkDevice vulkandevice, VkQueue graphicsqueue, device* devicePtr, std::vector<float> vertices, std::vector<uint32_t> indices, Buffer& vertex, Buffer& index)
+bool memory::create_vertex_index_buffer(VkDevice vulkandevice, VkQueue graphicsqueue, device* devicePtr, std::vector<float> vertices, std::vector<uint32_t> indices, VertexBuffer& vertex)
 {
     VkDeviceSize vertexBufferSize = vertices.size() * sizeof(float);
     VkDeviceSize indexBufferSize = indices.size() * sizeof(uint32_t);
@@ -99,8 +99,8 @@ bool memory::create_vertex_index_buffer(VkDevice vulkandevice, VkQueue graphicsq
 
     create_buffer(vulkandevice, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, vertices.size() * sizeof(float), 1, vertexstagingBuffer, vertices.data());
     create_buffer(vulkandevice, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, indices.size() * sizeof(uint32_t), 1, indexstagingBuffer, indices.data());
-    create_buffer(vulkandevice, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertices.size() * sizeof(float), 1, vertex);
-    create_buffer(vulkandevice, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indices.size() * sizeof(uint32_t), 1, index);
+    create_buffer(vulkandevice, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertices.size() * sizeof(float), 1, vertex.vertexbuffer);
+    create_buffer(vulkandevice, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indices.size() * sizeof(uint32_t), 1, vertex.indexbuffer);
 
     VkCommandBuffer commandBuffer;
 
@@ -109,10 +109,10 @@ bool memory::create_vertex_index_buffer(VkDevice vulkandevice, VkQueue graphicsq
     VkBufferCopy copyRegion = {};
 
     copyRegion.size = vertexBufferSize;
-    vkCmdCopyBuffer(commandBuffer, vertexstagingBuffer.buf, vertex.buf, 1, &copyRegion);
+    vkCmdCopyBuffer(commandBuffer, vertexstagingBuffer.buf, vertex.vertexbuffer.buf, 1, &copyRegion);
 
     copyRegion.size = indexBufferSize;
-    vkCmdCopyBuffer(commandBuffer, indexstagingBuffer.buf, index.buf, 1, &copyRegion);
+    vkCmdCopyBuffer(commandBuffer, indexstagingBuffer.buf, vertex.indexbuffer.buf, 1, &copyRegion);
 
     devicePtr->end_commandbuffer_submit(graphicsqueue, commandBuffer);
 
@@ -120,6 +120,8 @@ bool memory::create_vertex_index_buffer(VkDevice vulkandevice, VkQueue graphicsq
     vkFreeMemory(devicePtr->vulkanDevice, vertexstagingBuffer.memory, VK_NULL_HANDLE);
     vkDestroyBuffer(devicePtr->vulkanDevice, indexstagingBuffer.buf, VK_NULL_HANDLE);
     vkFreeMemory(devicePtr->vulkanDevice, indexstagingBuffer.memory, VK_NULL_HANDLE);
+
+    vertex.indexsize = static_cast<uint32_t>(indices.size());
 
     return true;
 }

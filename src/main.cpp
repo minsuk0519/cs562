@@ -34,11 +34,13 @@ VkSwapchainKHR vulkanSwapchain = VK_NULL_HANDLE;
 VkQueryPool vulkanTimestampQuery;
 VkQueryPool vulkanPipelineStatisticsQuery;
 
-Image depthImage;
+const uint32_t timestampQueryCount = 4;
+const uint32_t pipelinestatisticsQueryCount = 9;
 
-std::vector<Image> swapchainImages;
-std::vector<VkFence> vulkanWaitFences;
-std::vector<VkFramebuffer> vulkanFramebuffers;
+uint64_t gbufferpasstime;
+uint64_t lightingpasstime;
+
+Image depthImage;
 
 VkQueue vulkanGraphicsQueue = VK_NULL_HANDLE;
 VkQueue vulkanComputeQueue = VK_NULL_HANDLE;
@@ -48,77 +50,79 @@ VkPipelineCache vulkanPipelineCache = VK_NULL_HANDLE;
 
 VkSampler vulkanSampler = VK_NULL_HANDLE;
 
+//formats
 VkFormat vulkanColorFormat;
 VkFormat vulkanDepthFormat;
-VkColorSpaceKHR vulkanColorSpace;
 
-uint32_t swapchainImageCount;
-
-uint64_t gbufferpasstime;
-uint64_t lightingpasstime;
-
-const uint32_t timestampQueryCount = 4;
-const uint32_t pipelinestatisticsQueryCount = 9;
-
+// system values
 window* windowPtr = new window();
 device* devicePtr = new device();
 memory* memPtr = new memory();
 gui* guiPtr = new gui();
 
+//buffer
+std::array<Buffer, UNIFORM_INDEX_MAX> uniformbuffers;
+std::array<VertexBuffer, VERTEX_INDEX_MAX> vertexbuffers;
+
+//draw swapchain
+std::vector<Image> swapchainImages;
+VkColorSpaceKHR vulkanColorSpace;
+uint32_t swapchainImageCount;
+std::vector<VkFence> vulkanWaitFences;
+
 std::vector<VkCommandBuffer> vulkanCommandBuffers;
-VkPipeline vulkanPipeline = VK_NULL_HANDLE;
+std::vector<VkFramebuffer> vulkanFramebuffers;
 VkRenderPass vulkanRenderPass = VK_NULL_HANDLE;
-VkDescriptorSetLayout vulkanDescriptorSetLayout = VK_NULL_HANDLE;
-VkDescriptorPool vulkanDescriptorPool = VK_NULL_HANDLE;
-VkDescriptorSet vulkanDescriptorSet = VK_NULL_HANDLE;
-VkPipelineLayout vulkanPipelineLayout = VK_NULL_HANDLE;
 
-Buffer objvertexBuffer{};
-Buffer objindexBuffer{};
-
-Buffer objvertexBuffer2{};
-Buffer objindexBuffer2{};
-
-Buffer fsqvertexBuffer{};
-Buffer fsqindexBuffer{};
-
-Buffer lightspacevertexBuffer{};
-Buffer lightspaceindexBuffer{};
-
+//draw gbuffer
+VkCommandBuffer gbufferCommandbuffer = VK_NULL_HANDLE;
+VkRenderPass gbufferRenderPass = VK_NULL_HANDLE;
+VkFramebuffer gbufferFramebuffer = VK_NULL_HANDLE;
 Image posframebufferimage;
 Image normframebufferimage;
 Image texframebufferimage;
 Image albedoframebufferimage;
 
+//deal with gbuffer
+VkPipeline vulkanPipeline = VK_NULL_HANDLE;
+VkDescriptorSetLayout vulkanDescriptorSetLayout = VK_NULL_HANDLE;
+VkDescriptorPool vulkanDescriptorPool = VK_NULL_HANDLE;
+VkDescriptorSet vulkanDescriptorSet = VK_NULL_HANDLE;
+VkPipelineLayout vulkanPipelineLayout = VK_NULL_HANDLE;
+
+//draw gbuffer pass
 VkPipeline gbufferPipeline = VK_NULL_HANDLE;
-VkRenderPass gbufferRenderPass = VK_NULL_HANDLE;
-VkFramebuffer gbufferFramebuffer = VK_NULL_HANDLE;
 VkSemaphore gbuffersemaphore = VK_NULL_HANDLE;
-VkCommandBuffer gbufferCommandbuffer = VK_NULL_HANDLE;
 VkDescriptorSetLayout gbufferDescriptorSetLayout = VK_NULL_HANDLE;
 VkDescriptorSet gbufferDescriptorSet = VK_NULL_HANDLE;
 VkPipelineLayout gbufferPipelineLayout = VK_NULL_HANDLE;
 
+//local light
 VkDescriptorSetLayout lightDescriptorSetLayout = VK_NULL_HANDLE;
 VkDescriptorSet lightDescriptorSet = VK_NULL_HANDLE;
 VkPipeline lightPipeline = VK_NULL_HANDLE;
 VkPipelineLayout lightPipelineLayout = VK_NULL_HANDLE;
 
-std::vector<object*> objects;
+//diffuse(draw light)
+VkDescriptorSetLayout diffuseDescriptorSetLayout = VK_NULL_HANDLE;
+VkDescriptorSet diffuseDescriptorSet = VK_NULL_HANDLE;
+VkPipeline diffusePipeline = VK_NULL_HANDLE;
+VkPipelineLayout diffusePipelineLayout = VK_NULL_HANDLE;
 
+std::vector<object*> objects;
 glm::vec3 camerapos = glm::vec3(0.0f, 2.0f, 5.0f);
 glm::quat rotation = glm::quat(glm::vec3(glm::radians(0.0f), 0, 0));
-
 light sun;
 std::vector<light> local_light;
-
 helper::vertindex spherepos;
-
-const glm::vec3 RIGHT = glm::vec3(1.0f, 0.0f, 0.0f);
-const glm::vec3 FORWARD = glm::vec3(0.0f, 0.0f, -1.0f);
 
 lightSetting lightsetting;
 ObjectProperties objproperties;
+
+//constant value
+constexpr glm::vec3 RIGHT = glm::vec3(1.0f, 0.0f, 0.0f);
+constexpr glm::vec3 FORWARD = glm::vec3(0.0f, 0.0f, -1.0f);
+constexpr float LIGHT_SPHERE_SIZE = 0.05f;
 
 std::vector<const char*> getRequiredExtensions()
 {
@@ -441,7 +445,7 @@ void createSemaphoreFence()
     fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-    vulkanWaitFences.resize(vulkanCommandBuffers.size());
+    vulkanWaitFences.resize(swapchainImageCount);
     for (auto& fence : vulkanWaitFences)
     {
         if (vkCreateFence(devicePtr->vulkanDevice, &fenceCreateInfo, VK_NULL_HANDLE, &fence) != VK_SUCCESS)
@@ -490,7 +494,8 @@ void createRenderpass()
 void createdescriptorset()
 {
     descriptor::create_descriptorpool(devicePtr->vulkanDevice, vulkanDescriptorPool, {
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 4 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 6 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 4 },
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4 },
         });
 
@@ -546,48 +551,22 @@ void createdescriptorset()
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 5, {uniformbuffers[UNIFORM_INDEX_CAMERA].buf, 0, uniformbuffers[UNIFORM_INDEX_CAMERA].range}, {}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 6, {uniformbuffers[UNIFORM_INDEX_LIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT].range}, {}},
         });
+
+    //diffuse obj
+    descriptor::create_descriptorset_layout(devicePtr->vulkanDevice, diffuseDescriptorSetLayout, diffuseDescriptorSet, vulkanDescriptorPool, {
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 1},
+        });
+
+    descriptor::write_descriptorset(devicePtr->vulkanDevice, diffuseDescriptorSet, {
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, {uniformbuffers[UNIFORM_INDEX_PROJECTION].buf, 0, uniformbuffers[UNIFORM_INDEX_PROJECTION].range}, {}},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, {uniformbuffers[UNIFORM_INDEX_OBJECT].buf, 0, uniformbuffers[UNIFORM_INDEX_OBJECT].range}, {}},
+        });
 }
 
 void createPipeline()
 {
-    {
-        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayout, vulkanPipelineLayout);
-
-        VkGraphicsPipelineCreateInfo pipelineCreateInfo{};
-        pipelineCreateInfo.layout = vulkanPipelineLayout;
-        pipelineCreateInfo.renderPass = vulkanRenderPass;
-
-        std::vector<VkVertexInputAttributeDescription> vertexinputs = {
-            { 0, 0, VK_FORMAT_R32G32_SFLOAT, 0 },
-            { 1, 0, VK_FORMAT_R32G32_SFLOAT, sizeof(glm::vec2) },
-        };
-
-        VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo = pipeline::getInputAssemblyCreateInfo();
-        VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo = pipeline::getRasterizationCreateInfo(VK_CULL_MODE_BACK_BIT);
-        VkPipelineColorBlendAttachmentState pipelinecolorblendattachment = pipeline::getColorBlendAttachment(VK_FALSE);
-        std::vector<VkPipelineColorBlendAttachmentState> pipelinecolorblendattachments = { pipelinecolorblendattachment };
-        VkPipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo = pipeline::getColorBlendCreateInfo(static_cast<uint32_t>(pipelinecolorblendattachments.size()), pipelinecolorblendattachments.data());
-        VkPipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo = pipeline::getMultisampleCreateInfo(VK_SAMPLE_COUNT_1_BIT);
-        VkViewport viewport = pipeline::getViewport(windowPtr->windowWidth, windowPtr->windowHeight);
-        VkRect2D scissor = pipeline::getScissor(windowPtr->windowWidth, windowPtr->windowHeight);
-        VkPipelineViewportStateCreateInfo pipelineViewportStateCreateInfo = pipeline::getViewportCreateInfo(&viewport, &scissor);
-        VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo = pipeline::getDepthStencilCreateInfo(VK_FALSE, VK_COMPARE_OP_LESS_OR_EQUAL);
-        VkVertexInputBindingDescription pipelinevertexinputbinding = pipeline::getVertexinputbindingDescription(sizeof(glm::vec2) * 2);
-        VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo = pipeline::getVertexinputAttributeDescription(&pipelinevertexinputbinding, vertexinputs);
-
-        pipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
-        pipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
-        pipelineCreateInfo.pColorBlendState = &pipelineColorBlendStateCreateInfo;
-        pipelineCreateInfo.pMultisampleState = &pipelineMultisampleStateCreateInfo;
-        pipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
-        pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
-        pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
-        pipeline::create_pipieline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipeline, vulkanPipelineCache, {
-                {"data/shaders/lighting.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-                {"data/shaders/lighting.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
-            });
-    }
-
+    //gbuffer pass
     {
         pipeline::create_pipelinelayout(devicePtr->vulkanDevice, gbufferDescriptorSetLayout, gbufferPipelineLayout);
 
@@ -627,6 +606,46 @@ void createPipeline()
             });
     }
 
+    //lighting pass
+    {
+        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayout, vulkanPipelineLayout);
+
+        VkGraphicsPipelineCreateInfo pipelineCreateInfo{};
+        pipelineCreateInfo.layout = vulkanPipelineLayout;
+        pipelineCreateInfo.renderPass = vulkanRenderPass;
+
+        std::vector<VkVertexInputAttributeDescription> vertexinputs = {
+            { 0, 0, VK_FORMAT_R32G32_SFLOAT, 0 },
+            { 1, 0, VK_FORMAT_R32G32_SFLOAT, sizeof(glm::vec2) },
+        };
+
+        VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo = pipeline::getInputAssemblyCreateInfo();
+        VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo = pipeline::getRasterizationCreateInfo(VK_CULL_MODE_BACK_BIT);
+        VkPipelineColorBlendAttachmentState pipelinecolorblendattachment = pipeline::getColorBlendAttachment(VK_FALSE);
+        std::vector<VkPipelineColorBlendAttachmentState> pipelinecolorblendattachments = { pipelinecolorblendattachment };
+        VkPipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo = pipeline::getColorBlendCreateInfo(static_cast<uint32_t>(pipelinecolorblendattachments.size()), pipelinecolorblendattachments.data());
+        VkPipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo = pipeline::getMultisampleCreateInfo(VK_SAMPLE_COUNT_1_BIT);
+        VkViewport viewport = pipeline::getViewport(windowPtr->windowWidth, windowPtr->windowHeight);
+        VkRect2D scissor = pipeline::getScissor(windowPtr->windowWidth, windowPtr->windowHeight);
+        VkPipelineViewportStateCreateInfo pipelineViewportStateCreateInfo = pipeline::getViewportCreateInfo(&viewport, &scissor);
+        VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo = pipeline::getDepthStencilCreateInfo(VK_FALSE, VK_COMPARE_OP_LESS_OR_EQUAL);
+        VkVertexInputBindingDescription pipelinevertexinputbinding = pipeline::getVertexinputbindingDescription(sizeof(glm::vec2) * 2);
+        VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo = pipeline::getVertexinputAttributeDescription(&pipelinevertexinputbinding, vertexinputs);
+
+        pipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
+        pipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
+        pipelineCreateInfo.pColorBlendState = &pipelineColorBlendStateCreateInfo;
+        pipelineCreateInfo.pMultisampleState = &pipelineMultisampleStateCreateInfo;
+        pipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
+        pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
+        pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
+        pipeline::create_pipieline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipeline, vulkanPipelineCache, {
+                {"data/shaders/lighting.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+                {"data/shaders/lighting.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
+            });
+    }
+
+    //local lighting pass
     {
         pipeline::create_pipelinelayout(devicePtr->vulkanDevice, lightDescriptorSetLayout, lightPipelineLayout);
 
@@ -661,6 +680,44 @@ void createPipeline()
         pipeline::create_pipieline(devicePtr->vulkanDevice, pipelineCreateInfo, lightPipeline, vulkanPipelineCache, {
                 {"data/shaders/locallights.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
                 {"data/shaders/locallights.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
+            });
+    }
+
+    //diffuse pass
+    {
+        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, diffuseDescriptorSetLayout, diffusePipelineLayout);
+
+        VkGraphicsPipelineCreateInfo pipelineCreateInfo{};
+        pipelineCreateInfo.layout = diffusePipelineLayout;
+        pipelineCreateInfo.renderPass = vulkanRenderPass;
+
+        std::vector<VkVertexInputAttributeDescription> vertexinputs = {
+            { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 },
+        };
+
+        VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo = pipeline::getInputAssemblyCreateInfo();
+        VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo = pipeline::getRasterizationCreateInfo(VK_CULL_MODE_BACK_BIT);
+        VkPipelineColorBlendAttachmentState pipelinecolorblendattachment = pipeline::getColorBlendAttachment(VK_FALSE);
+        std::vector<VkPipelineColorBlendAttachmentState> pipelinecolorblendattachments = { pipelinecolorblendattachment };
+        VkPipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo = pipeline::getColorBlendCreateInfo(static_cast<uint32_t>(pipelinecolorblendattachments.size()), pipelinecolorblendattachments.data());
+        VkPipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo = pipeline::getMultisampleCreateInfo(VK_SAMPLE_COUNT_1_BIT);
+        VkViewport viewport = pipeline::getViewport(windowPtr->windowWidth, windowPtr->windowHeight);
+        VkRect2D scissor = pipeline::getScissor(windowPtr->windowWidth, windowPtr->windowHeight);
+        VkPipelineViewportStateCreateInfo pipelineViewportStateCreateInfo = pipeline::getViewportCreateInfo(&viewport, &scissor);
+        VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo = pipeline::getDepthStencilCreateInfo(VK_FALSE, VK_COMPARE_OP_LESS_OR_EQUAL);
+        VkVertexInputBindingDescription pipelinevertexinputbinding = pipeline::getVertexinputbindingDescription(sizeof(glm::vec3));
+        VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo = pipeline::getVertexinputAttributeDescription(&pipelinevertexinputbinding, vertexinputs);
+
+        pipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
+        pipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
+        pipelineCreateInfo.pColorBlendState = &pipelineColorBlendStateCreateInfo;
+        pipelineCreateInfo.pMultisampleState = &pipelineMultisampleStateCreateInfo;
+        pipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
+        pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
+        pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
+        pipeline::create_pipieline(devicePtr->vulkanDevice, pipelineCreateInfo, diffusePipeline, vulkanPipelineCache, {
+                {"data/shaders/diffuse.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+                {"data/shaders/diffuse.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
             });
     }
 }
@@ -704,26 +761,40 @@ void updatebuffer()
 
     static float a = 0.0f;
     a += 0.001f;
-    objproperties.modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), a, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(10.0f));
 
-    ObjectProperties props[2];
-    props[0].albedoColor = objproperties.albedoColor;
-    props[0].metallic = objproperties.metallic;
-    props[0].roughness = objproperties.roughness;
-    props[0].modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), a, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(10.0f));
+    objects[0]->prop->albedoColor = objproperties.albedoColor;
+    objects[0]->prop->metallic = objproperties.metallic;
+    objects[0]->prop->roughness = objproperties.roughness;
+    objects[0]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), a, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(10.0f));
 
-    props[1].albedoColor = objproperties.albedoColor;
-    props[1].metallic = objproperties.metallic;
-    props[1].roughness = objproperties.roughness;
-    props[1].modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 2.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), -a, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f));
+    objects[1]->prop->albedoColor = objproperties.albedoColor;
+    objects[1]->prop->metallic = objproperties.metallic;
+    objects[1]->prop->roughness = objproperties.roughness;
+    objects[1]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 2.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), -a, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f));
 
-    void* data1;
-    vkMapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_OBJECT].memory, 0, uniformbuffers[UNIFORM_INDEX_OBJECT].range, 0, &data1);
-    memcpy(data1, props, uniformbuffers[UNIFORM_INDEX_OBJECT].range);
-    vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_OBJECT].memory);
-    vkMapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_OBJECT].memory, 128, uniformbuffers[UNIFORM_INDEX_OBJECT].range, 0, &data1);
-    memcpy(data1, &props[1], uniformbuffers[UNIFORM_INDEX_OBJECT].range);
-    vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_OBJECT].memory);
+    VkDeviceSize offset = 0;
+    for (auto obj : objects)
+    {
+        void* data;
+        vkMapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_OBJECT].memory, offset, uniformbuffers[UNIFORM_INDEX_OBJECT].range, 0, &data);
+        memcpy(data, obj->prop, uniformbuffers[UNIFORM_INDEX_OBJECT].range);
+        vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_OBJECT].memory);
+        offset += 128;
+    }
+
+    for (auto lit : local_light)
+    {
+        ObjectProperties prop;
+
+        prop.albedoColor = lit.color;
+        prop.modelMat = glm::translate(glm::mat4(1.0f), lit.position) * glm::scale(glm::mat4(1.0f), glm::vec3(LIGHT_SPHERE_SIZE));
+
+        void* data;
+        vkMapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_OBJECT].memory, offset, uniformbuffers[UNIFORM_INDEX_OBJECT].range, 0, &data);
+        memcpy(data, &prop, uniformbuffers[UNIFORM_INDEX_OBJECT].range);
+        vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_OBJECT].memory);
+        offset += 128;
+    }
 
     void* data2;
     vkMapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].memory, 0, uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].size, 0, &data2);
@@ -743,8 +814,8 @@ void updatebuffer()
     memcpy(data4, &sun, uniformbuffers[UNIFORM_INDEX_LIGHT].size);
     vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_LIGHT].memory);
 
-    VkDeviceSize offset = 0;
-    for (auto lit : local_light)
+    offset = 0;
+    for (const auto& lit : local_light)
     {
         offset += 64;
         void* data5;
@@ -783,16 +854,16 @@ void setupbuffer()
             2, 1, 3,
         };
 
-        memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, vertices, indices, fsqvertexBuffer, fsqindexBuffer);
+        memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, vertices, indices, vertexbuffers[VERTEX_INDEX_FULLSCREENQUAD]);
     }
 
     {
         std::vector<helper::vertindex> data = helper::readassimp("data/model/bunny.ply");
 
-        memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, data[0].vertices, data[0].indices, objvertexBuffer, objindexBuffer);
+        memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, data[0].vertices, data[0].indices, vertexbuffers[VERTEX_INDEX_BUNNY]);
 
         object* newobject = new object();
-        newobject->create_object(static_cast<unsigned int>(data[0].indices.size()), objvertexBuffer.buf, objindexBuffer.buf);
+        newobject->create_object(static_cast<unsigned int>(data[0].indices.size()), vertexbuffers[VERTEX_INDEX_BUNNY]);
         objects.push_back(newobject);
 
         //data = helper::readassimp("data/model/armadillo.ply");
@@ -800,17 +871,17 @@ void setupbuffer()
         //newobject = new object();
         //newobject->create_object(static_cast<unsigned int>(data[0].indices.size()), objvertexBuffer2.buf, objindexBuffer2.buf);
         helper::vertindex d = generateSphere();
-        memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, d.vertices, d.indices, objvertexBuffer2, objindexBuffer2);
+        memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, d.vertices, d.indices, vertexbuffers[VERTEX_INDEX_CUBE]);
         newobject = new object();
-        newobject->create_object(static_cast<unsigned int>(d.indices.size()), objvertexBuffer2.buf, objindexBuffer2.buf);
+        newobject->create_object(static_cast<unsigned int>(d.indices.size()), vertexbuffers[VERTEX_INDEX_CUBE]);
         objects.push_back(newobject);
 
         spherepos = generateSphereposonly();
-        memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, spherepos.vertices, spherepos.indices, lightspacevertexBuffer, lightspaceindexBuffer);
+        memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, spherepos.vertices, spherepos.indices, vertexbuffers[VERTEX_INDEX_SPHERE_POSONLY]);
     }
 
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(Projection), 1, uniformbuffers[UNIFORM_INDEX_PROJECTION]);
-    memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(ObjectProperties)*/128, 2, uniformbuffers[UNIFORM_INDEX_OBJECT]);
+    memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(ObjectProperties)*/128, 16, uniformbuffers[UNIFORM_INDEX_OBJECT]);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(lightSetting), 1, uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING]);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(camera), 1, uniformbuffers[UNIFORM_INDEX_CAMERA]);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(light)*/64, 16, uniformbuffers[UNIFORM_INDEX_LIGHT]);
@@ -820,14 +891,11 @@ void setupbuffer()
 
 void freebuffer()
 {
-    memPtr->free_buffer(devicePtr->vulkanDevice, objvertexBuffer);
-    memPtr->free_buffer(devicePtr->vulkanDevice, objindexBuffer);
-    memPtr->free_buffer(devicePtr->vulkanDevice, objvertexBuffer2);
-    memPtr->free_buffer(devicePtr->vulkanDevice, objindexBuffer2);
-    memPtr->free_buffer(devicePtr->vulkanDevice, fsqvertexBuffer);
-    memPtr->free_buffer(devicePtr->vulkanDevice, fsqindexBuffer);
-    memPtr->free_buffer(devicePtr->vulkanDevice, lightspacevertexBuffer);
-    memPtr->free_buffer(devicePtr->vulkanDevice, lightspaceindexBuffer);
+    for (auto& vertexbuffer : vertexbuffers)
+    {
+        memPtr->free_buffer(devicePtr->vulkanDevice, vertexbuffer.vertexbuffer);
+        memPtr->free_buffer(devicePtr->vulkanDevice, vertexbuffer.indexbuffer);
+    }
     for (auto& uniformbuffer : uniformbuffers)
     {
         memPtr->free_buffer(devicePtr->vulkanDevice, uniformbuffer);
@@ -929,12 +997,17 @@ void close()
     pipeline::closepipeline(devicePtr->vulkanDevice, vulkanPipeline);
     pipeline::closepipeline(devicePtr->vulkanDevice, gbufferPipeline);
     pipeline::closepipeline(devicePtr->vulkanDevice, lightPipeline);
+    pipeline::closepipeline(devicePtr->vulkanDevice, diffusePipeline);
+
     pipeline::close_pipelinelayout(devicePtr->vulkanDevice, vulkanPipelineLayout);
     pipeline::close_pipelinelayout(devicePtr->vulkanDevice, gbufferPipelineLayout);
     pipeline::close_pipelinelayout(devicePtr->vulkanDevice, lightPipelineLayout);
+    pipeline::close_pipelinelayout(devicePtr->vulkanDevice, diffusePipelineLayout);
+
     descriptor::close_descriptorset_layout(devicePtr->vulkanDevice, vulkanDescriptorSetLayout);
     descriptor::close_descriptorset_layout(devicePtr->vulkanDevice, gbufferDescriptorSetLayout);
     descriptor::close_descriptorset_layout(devicePtr->vulkanDevice, lightDescriptorSetLayout);
+    descriptor::close_descriptorset_layout(devicePtr->vulkanDevice, diffuseDescriptorSetLayout);
     descriptor::close_descriptorpool(devicePtr->vulkanDevice, vulkanDescriptorPool);
     for (auto fb : vulkanFramebuffers)
     {
@@ -1110,16 +1183,14 @@ int main(void)
 
             vkCmdBindPipeline(gbufferCommandbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gbufferPipeline);
 
-            std::array<uint32_t, 1> offset;
+            std::array<uint32_t, 1> dynamicoffsets = { 0 };
 
-            unsigned int i = 0;
             for (auto obj : objects)
             {
-                offset = { i * 128 };
-                vkCmdBindDescriptorSets(gbufferCommandbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gbufferPipelineLayout, 0, 1, &gbufferDescriptorSet, 1, offset.data());
+                vkCmdBindDescriptorSets(gbufferCommandbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gbufferPipelineLayout, 0, 1, &gbufferDescriptorSet, static_cast<uint32_t>(dynamicoffsets.size()), dynamicoffsets.data());
 
                 obj->draw_object(gbufferCommandbuffer);
-                ++i;
+                dynamicoffsets[0] += 128;
             }
 
             vkCmdEndRenderPass(gbufferCommandbuffer);
@@ -1190,14 +1261,11 @@ int main(void)
 
             //sun light pass
             {
-                VkDeviceSize vertexoffsets[1] = { 0 };
                 std::array<uint32_t, 1> dynamicoffsets = { 0 };
 
                 vkCmdBindDescriptorSets(vulkanCommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelineLayout, 0, 1, &vulkanDescriptorSet, static_cast<uint32_t>(dynamicoffsets.size()), dynamicoffsets.data());
 
-                vkCmdBindVertexBuffers(vulkanCommandBuffers[imageIndex], 0, 1, &fsqvertexBuffer.buf, vertexoffsets);
-                vkCmdBindIndexBuffer(vulkanCommandBuffers[imageIndex], fsqindexBuffer.buf, 0, VK_INDEX_TYPE_UINT32);
-                vkCmdDrawIndexed(vulkanCommandBuffers[imageIndex], 6, 1, 0, 0, 0);
+                render::draw(vulkanCommandBuffers[imageIndex], vertexbuffers[VERTEX_INDEX_FULLSCREENQUAD]);
             }
 
             guiPtr->render(vulkanCommandBuffers[imageIndex]);
@@ -1214,9 +1282,22 @@ int main(void)
                     dynamicoffsets[0] += 64;
                     vkCmdBindDescriptorSets(vulkanCommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, lightPipelineLayout, 0, 1, &lightDescriptorSet, static_cast<uint32_t>(dynamicoffsets.size()), dynamicoffsets.data());
 
-                    vkCmdBindVertexBuffers(vulkanCommandBuffers[imageIndex], 0, 1, &lightspacevertexBuffer.buf, vertexoffsets);
-                    vkCmdBindIndexBuffer(vulkanCommandBuffers[imageIndex], lightspaceindexBuffer.buf, 0, VK_INDEX_TYPE_UINT32);
-                    vkCmdDrawIndexed(vulkanCommandBuffers[imageIndex], spherepos.indices.size(), 1, 0, 0, 0);
+                    render::draw(vulkanCommandBuffers[imageIndex], vertexbuffers[VERTEX_INDEX_SPHERE_POSONLY]);
+                }
+            }
+
+            vkCmdBindPipeline(vulkanCommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, diffusePipeline);
+            //draw local_light
+            {
+                std::array<uint32_t, 1> dynamicoffsets = { 128 * static_cast<uint32_t>(objects.size()) };
+                for (auto lit : local_light)
+                {
+                    vkCmdBindDescriptorSets(vulkanCommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, diffusePipelineLayout, 0, 1, &diffuseDescriptorSet, static_cast<uint32_t>(dynamicoffsets.size()), dynamicoffsets.data());
+                    VkDeviceSize vertexoffset = 0;
+
+                    render::draw(vulkanCommandBuffers[imageIndex], vertexbuffers[VERTEX_INDEX_SPHERE_POSONLY]);
+
+                    dynamicoffsets[0] += 128;
                 }
             }
 

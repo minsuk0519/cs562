@@ -2,6 +2,9 @@
 #include <vulkan/vulkan.h>
 #include <glm/glm.hpp>
 
+struct ObjectProperties;
+struct VertexBuffer;
+
 class object
 {
 public:
@@ -12,6 +15,9 @@ public:
 
 	glm::mat4 modeltransform = glm::mat4(1.0f);
 
-	void create_object(unsigned int count, VkBuffer vert, VkBuffer index);
+	ObjectProperties* prop;
+
+	object();
+	void create_object(unsigned int count, VertexBuffer& buffer);
 	void draw_object(VkCommandBuffer commandbuffer);
 };

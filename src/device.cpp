@@ -214,7 +214,7 @@ bool device::end_commandbuffer_submit(VkQueue graphicsqueue, VkCommandBuffer com
         return false;
     }
 
-    if (vkWaitForFences(vulkanDevice, 1, &fence, VK_TRUE, 1000000) != VK_SUCCESS)
+    if (vkWaitForFences(vulkanDevice, 1, &fence, VK_TRUE, UINT64_MAX) != VK_SUCCESS)
     {
         std::cout << "failed to wait fence" << std::endl;
         return false;
