@@ -712,7 +712,7 @@ void updatebuffer()
     props[0].roughness = objproperties.roughness;
     props[0].modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), a, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(10.0f));
 
-    props[1].albedoColor = glm::vec3(0.0f, 0.0f, 1.0f);// objproperties.albedoColor;
+    props[1].albedoColor = objproperties.albedoColor;
     props[1].metallic = objproperties.metallic;
     props[1].roughness = objproperties.roughness;
     props[1].modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 2.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), -a, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f));
@@ -747,8 +747,9 @@ void updatebuffer()
     for (auto lit : local_light)
     {
         offset += 64;
-        vkMapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_LIGHT].memory, offset, uniformbuffers[UNIFORM_INDEX_LIGHT].range, 0, &data4);
-        memcpy(data4, &lit, uniformbuffers[UNIFORM_INDEX_LIGHT].size);
+        void* data5;
+        vkMapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_LIGHT].memory, offset, uniformbuffers[UNIFORM_INDEX_LIGHT].range, 0, &data5);
+        memcpy(data5, &lit, uniformbuffers[UNIFORM_INDEX_LIGHT].range);
         vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_LIGHT].memory);
     }
 }
@@ -761,8 +762,8 @@ void setupbuffer()
     sun.position = glm::vec3(0.0, 0.0f, 0.0f);
     sun.radius = 10.1f;
 
-    local_light.push_back(light{ glm::vec3(0.0f, 2.0f, 0.0f), 1.0f, glm::vec3(0.0f, 0.0f, 0.0f), 0, glm::vec3(1.0f, 0.0f, 0.0f) });
-    local_light.push_back(light{ glm::vec3(0.0f, 0.0f, 0.0f), 8.0f, glm::vec3(0.0f, 0.0f, 0.0f), 0, glm::vec3(1.0f, 0.0f, 0.0f) });
+    local_light.push_back(light{ glm::vec3(0.0f, 10.0f, 0.0f), 20.0f, glm::vec3(0.0f, 0.0f, 0.0f), 0, glm::vec3(1.0f, 0.0f, 0.0f) });
+    local_light.push_back(light{ glm::vec3(1.0f, 0.0f, 0.0f), 0.2f, glm::vec3(0.0f, 0.0f, 0.0f), 0, glm::vec3(1.0f, 0.0f, 0.0f) });
 
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, windowPtr->windowWidth, windowPtr->windowHeight, posframebufferimage);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, windowPtr->windowWidth, windowPtr->windowHeight, normframebufferimage);
@@ -1006,7 +1007,7 @@ int main(void)
 
                 if (ImGui::BeginMenu("SUN##Object"))
                 {
-                    ImGui::ColorPicker3("color##SUN", &sun.color.x);
+                    ImGui::DragFloat3("color##SUN", &sun.color.x);
                     ImGui::DragFloat3("diraection##SUN", &sun.direction.x, 0.01f);
                     ImGui::DragFloat3("position##SUN", &sun.position.x, 0.005f);
                     ImGui::DragFloat("radius##SUN", &sun.radius, 0.01f, 0.0f, 5.0f);
@@ -1016,20 +1017,20 @@ int main(void)
 
                 if (ImGui::BeginMenu("LOCAL1##Object"))
                 {
-                    ImGui::ColorPicker3("color##LOCAL1", &local_light[0].color.x);
+                    ImGui::DragFloat3("color##LOCAL1", &local_light[0].color.x);
                     ImGui::DragFloat3("diraection##LOCAL1", &local_light[0].direction.x, 0.01f);
                     ImGui::DragFloat3("position##LOCAL1", &local_light[0].position.x, 0.005f);
-                    ImGui::DragFloat("radius##LOCAL1", &local_light[0].radius, 0.01f, 0.0f, 5.0f);
+                    ImGui::DragFloat("radius##LOCAL1", &local_light[0].radius, 0.01f, 0.0f, 50.0f);
 
                     ImGui::EndMenu();
                 }
 
                 if (ImGui::BeginMenu("LOCAL12##Object"))
                 {
-                    ImGui::ColorPicker3("color##LOCAL12", &local_light[1].color.x);
+                    ImGui::DragFloat3("color##LOCAL12", &local_light[1].color.x);
                     ImGui::DragFloat3("diraection##LOCAL12", &local_light[1].direction.x, 0.01f);
                     ImGui::DragFloat3("position##LOCAL12", &local_light[1].position.x, 0.005f);
-                    ImGui::DragFloat("radius##LOCAL12", &local_light[1].radius, 0.01f, 0.0f, 5.0f);
+                    ImGui::DragFloat("radius##LOCAL12", &local_light[1].radius, 0.01f, 0.0f, 50.0f);
 
                     ImGui::EndMenu();
                 }
@@ -1079,7 +1080,7 @@ int main(void)
 
             std::array<VkClearValue, 5> gbufferclearValues;
             gbufferclearValues[0].color = { { 0.25f, 0.25f, 0.25f, 1.0f } };
-            gbufferclearValues[1].color = { { 0.25f, 0.25f, 0.25f, 1.0f } };
+            gbufferclearValues[1].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
             gbufferclearValues[2].color = { { 0.25f, 0.25f, 0.25f, 1.0f } };
             gbufferclearValues[3].color = { { 0.25f, 0.25f, 0.25f, 1.0f } };
             gbufferclearValues[4].depthStencil = { 1.0f, 0 };
@@ -1187,13 +1188,12 @@ int main(void)
 
             vkCmdBindPipeline(vulkanCommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipeline);
 
-            
+            //sun light pass
             {
                 VkDeviceSize vertexoffsets[1] = { 0 };
                 std::array<uint32_t, 1> dynamicoffsets = { 0 };
 
                 vkCmdBindDescriptorSets(vulkanCommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelineLayout, 0, 1, &vulkanDescriptorSet, static_cast<uint32_t>(dynamicoffsets.size()), dynamicoffsets.data());
-
 
                 vkCmdBindVertexBuffers(vulkanCommandBuffers[imageIndex], 0, 1, &fsqvertexBuffer.buf, vertexoffsets);
                 vkCmdBindIndexBuffer(vulkanCommandBuffers[imageIndex], fsqindexBuffer.buf, 0, VK_INDEX_TYPE_UINT32);
@@ -1204,16 +1204,20 @@ int main(void)
 
             vkCmdBindPipeline(vulkanCommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, lightPipeline);
 
+            //local light pass
             {
-                VkDeviceSize vertexoffsets[1] = { 0 };
                 std::array<uint32_t, 1> dynamicoffsets = { 0 };
+                for (auto lit : local_light)
+                {
+                    VkDeviceSize vertexoffsets[1] = { 0 };
 
-                dynamicoffsets[0] = { 1 * 64 };
-                vkCmdBindDescriptorSets(vulkanCommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, lightPipelineLayout, 0, 1, &lightDescriptorSet, static_cast<uint32_t>(dynamicoffsets.size()), dynamicoffsets.data());
+                    dynamicoffsets[0] += 64;
+                    vkCmdBindDescriptorSets(vulkanCommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, lightPipelineLayout, 0, 1, &lightDescriptorSet, static_cast<uint32_t>(dynamicoffsets.size()), dynamicoffsets.data());
 
-                vkCmdBindVertexBuffers(vulkanCommandBuffers[imageIndex], 0, 1, &lightspacevertexBuffer.buf, vertexoffsets);
-                vkCmdBindIndexBuffer(vulkanCommandBuffers[imageIndex], lightspaceindexBuffer.buf, 0, VK_INDEX_TYPE_UINT32);
-                vkCmdDrawIndexed(vulkanCommandBuffers[imageIndex], spherepos.indices.size(), 1, 0, 0, 0);
+                    vkCmdBindVertexBuffers(vulkanCommandBuffers[imageIndex], 0, 1, &lightspacevertexBuffer.buf, vertexoffsets);
+                    vkCmdBindIndexBuffer(vulkanCommandBuffers[imageIndex], lightspaceindexBuffer.buf, 0, VK_INDEX_TYPE_UINT32);
+                    vkCmdDrawIndexed(vulkanCommandBuffers[imageIndex], spherepos.indices.size(), 1, 0, 0, 0);
+                }
             }
 
             vkCmdEndRenderPass(vulkanCommandBuffers[imageIndex]);

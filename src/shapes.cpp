@@ -54,7 +54,8 @@ helper::vertindex generateSphere()
 
 helper::vertindex generateSphereposonly()
 {
-    const int n = 16;
+    //need more precision for calculating texture coordinate
+    const int n = 32;
 
     helper::vertindex result;
 
@@ -75,12 +76,12 @@ helper::vertindex generateSphereposonly()
             if (i > 0 && j > 0)
             {
                 result.indices.push_back((i - 1) * (n + 1) + (j - 1));
-                result.indices.push_back((i - 1) * (n + 1) + (j));
                 result.indices.push_back((i) * (n + 1) + (j));
+                result.indices.push_back((i - 1) * (n + 1) + (j));
 
                 result.indices.push_back((i - 1) * (n + 1) + (j - 1));
-                result.indices.push_back((i) * (n + 1) + (j));
                 result.indices.push_back((i) * (n + 1) + (j - 1));
+                result.indices.push_back((i) * (n + 1) + (j));
             }
         }
     }

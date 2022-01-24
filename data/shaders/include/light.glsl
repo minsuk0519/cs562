@@ -48,12 +48,12 @@ vec3 calcLight(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 albedo, vec3 light
 	float NdotL = max(dot(normal, lightDir), 0.0);
 	float NdotH = max(dot(normal, halfway), 0.0);
 
-	float D = calNormalDistribution(NdotH, roughness);   
+	float D = calNormalDistribution(NdotH, roughness);
 	float G = calGeometry(NdotV, NdotL, roughness);      
 	vec3 F = calFresnel(NdotH, F0);
-	   
+			   
 	vec3 specular = D * G * F / (4.0 * NdotV * NdotL + 0.0001);
-	
+		
 	vec3 kS = F;
 	vec3 kD = vec3(1.0) - kS;
 	kD *= 1.0 - metal;	  
