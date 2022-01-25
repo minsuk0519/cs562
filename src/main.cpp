@@ -778,8 +778,12 @@ void updatebuffer()
 
     objects[1]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 3.5f, -12.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
     objects[2]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(15.0f, 0.2f, 15.0f));
+
+    objects[3]->prop->albedoColor = glm::vec3(0.4f, 0.1f, 0.4f);
     objects[3]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(-7.5f, 4.0f, -5.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.2f, 8.0f, 15.0f));
+    objects[4]->prop->albedoColor = glm::vec3(0.4f, 0.1f, 0.4f);
     objects[4]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 4.0f, -12.5f)) * glm::scale(glm::mat4(1.0f), glm::vec3(15.0f, 8.0f, 0.2f));
+
     objects[5]->prop->albedoColor = glm::vec3(0.2f, 0.8f, 0.5f);
     objects[5]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.5f, -9.5f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.2f, 3.0f, 6.0f));
 
@@ -788,7 +792,15 @@ void updatebuffer()
     objects[8]->prop->albedoColor = glm::vec3(1.0f, 0.5f, 0.2f);
     objects[8]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(3.75f, 0.1f, -9.45f)) * glm::rotate(glm::mat4(1.0f), -PI_HALF, glm::vec3(1.0f, 0.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.36f, 0.295f, 0.3f));
     
-    objects[9]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 3.5f, -1.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, 2.0f, 2.0f));
+    objects[9]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 3.5f, -0.5f)) * glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, 2.0f, 2.0f));
+
+    objects[10]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(-3.75f, 0.25f, -5.5f)) * glm::rotate(glm::mat4(1.0f), PI, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.003f));
+    objects[11]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(-3.25f, 0.25f, -6.0f)) * glm::rotate(glm::mat4(1.0f), PI, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.003f));
+    objects[12]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(-4.25f, 0.25f, -6.0f)) * glm::rotate(glm::mat4(1.0f), PI, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.003f));
+
+    objects[13]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(3.75f, 0.025f, -5.5f)) * glm::rotate(glm::mat4(1.0f), PI_HALF, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(2.0f));
+    objects[14]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(3.25f, 0.025f, -6.0f)) * glm::rotate(glm::mat4(1.0f), PI_HALF, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(2.0f));
+    objects[15]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(4.25f, 0.025f, -6.0f)) * glm::rotate(glm::mat4(1.0f), PI_HALF, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(2.0f));
 
     VkDeviceSize offset = 0;
     for (auto obj : objects)
@@ -855,7 +867,7 @@ void setupbuffer()
     local_light.push_back(light{ glm::vec3(4.0f, 6.0f, -10.0f),  5.0f, glm::vec3(0.0f, 0.0f, 0.0f), 0, glm::vec3(0.0f, 0.0f, 15.0f) });
 
 
-    for (float row = 0.2f; row < PI_HALF; row += PI_HALF / 6.0f)
+    for (float row = 0.3f; row < PI_HALF; row += PI_HALF / 6.0f)
     {
         for (float angle = 0.0f; angle < 360.0f; angle += 36.0f)
         {
@@ -863,12 +875,19 @@ void setupbuffer()
             ImGui::ColorConvertHSVtoRGB(angle / 360.0f, 1.0f - 2.0f * row / PI, 1.0f, hue.r, hue.g, hue.b);
             hue *= 20.0f;
 
-            float s = 2.0 * sin(glm::radians(angle));
-            float c = 2.0 * cos(glm::radians(angle));
+            float s = 2.0f * sin(glm::radians(angle));
+            float c = 2.0f * cos(glm::radians(angle));
 
-            local_light.push_back(light{ glm::vec3(c, 2.0f * row + 2.0f, s - 1.0f), angle * 0.01f, glm::vec3(0.0f, 0.0f, 0.0f), 0, hue });
+            local_light.push_back(light{ glm::vec3(c, 2.0f * row + 2.0f, s - 0.5f), angle * 0.01f, glm::vec3(0.0f, 0.0f, 0.0f), 0, hue });
         }
     }
+
+    local_light.push_back(light{ glm::vec3(-3.75f, 0.6f, -5.5f), 0.5f, glm::vec3(0.0f, 0.0f, 0.0f), 0, glm::vec3(0.0f, 10.0f, 0.0f) });
+    local_light.push_back(light{ glm::vec3(-3.25f, 0.6f, -6.0f), 0.5f, glm::vec3(0.0f, 0.0f, 0.0f), 0, glm::vec3(0.0f, 10.0f, 0.0f) });
+    local_light.push_back(light{ glm::vec3(-4.25f, 0.6f, -6.0f), 0.5f, glm::vec3(0.0f, 0.0f, 0.0f), 0, glm::vec3(0.0f, 10.0f, 0.0f) });
+    local_light.push_back(light{ glm::vec3(3.75f,  0.6f, -5.5f), 0.5f, glm::vec3(0.0f, 0.0f, 0.0f), 0, glm::vec3(0.0f, 10.0f, 0.0f) });
+    local_light.push_back(light{ glm::vec3(3.25f,  0.6f, -6.0f), 0.5f, glm::vec3(0.0f, 0.0f, 0.0f), 0, glm::vec3(0.0f, 10.0f, 0.0f) });
+    local_light.push_back(light{ glm::vec3(4.25f,  0.6f, -6.0f), 0.5f, glm::vec3(0.0f, 0.0f, 0.0f), 0, glm::vec3(0.0f, 10.0f, 0.0f) });
 
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, windowPtr->windowWidth, windowPtr->windowHeight, posframebufferimage);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, windowPtr->windowWidth, windowPtr->windowHeight, normframebufferimage);
@@ -892,10 +911,10 @@ void setupbuffer()
     }
 
     {
-        std::vector<helper::vertindex> data = helper::readassimp("data/model/bunny.ply");
-        memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, data[0].vertices, data[0].indices, vertexbuffers[VERTEX_INDEX_BUNNY]);
+        std::vector<helper::vertindex> bunnydata = helper::readassimp("data/model/bunny.ply");
+        memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, bunnydata[0].vertices, bunnydata[0].indices, vertexbuffers[VERTEX_INDEX_BUNNY]);
         object* newobject = new object();
-        newobject->create_object(static_cast<unsigned int>(data[0].indices.size()), vertexbuffers[VERTEX_INDEX_BUNNY]);
+        newobject->create_object(static_cast<unsigned int>(bunnydata[0].indices.size()), vertexbuffers[VERTEX_INDEX_BUNNY]);
         objects.push_back(newobject);
 
         helper::vertindex vertexdata = generateSphere();
@@ -925,25 +944,43 @@ void setupbuffer()
         newobject->create_object(static_cast<unsigned int>(vertexdata.indices.size()), vertexbuffers[VERTEX_INDEX_BOX]);
         objects.push_back(newobject);
 
-        data.clear();
-        data = helper::readassimp("data/model/armadillo.ply");
-        memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, data[0].vertices, data[0].indices, vertexbuffers[VERTEX_INDEX_ARMADILLO]);
+        std::vector<helper::vertindex> armadillodata = helper::readassimp("data/model/armadillo.ply");
+        memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, armadillodata[0].vertices, armadillodata[0].indices, vertexbuffers[VERTEX_INDEX_ARMADILLO]);
         newobject = new object();
-        newobject->create_object(static_cast<unsigned int>(data[0].indices.size()), vertexbuffers[VERTEX_INDEX_ARMADILLO]);
+        newobject->create_object(static_cast<unsigned int>(armadillodata[0].indices.size()), vertexbuffers[VERTEX_INDEX_ARMADILLO]);
         objects.push_back(newobject);
 
-        data.clear();
-        data = helper::readassimp("data/model/room.ply");
-        memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, data[0].vertices, data[0].indices, vertexbuffers[VERTEX_INDEX_ROOM]);
+        std::vector<helper::vertindex> roomdata = helper::readassimp("data/model/room.ply");
+        memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, roomdata[0].vertices, roomdata[0].indices, vertexbuffers[VERTEX_INDEX_ROOM]);
         newobject = new object();
-        newobject->create_object(static_cast<unsigned int>(data[0].indices.size()), vertexbuffers[VERTEX_INDEX_ROOM]);
+        newobject->create_object(static_cast<unsigned int>(roomdata[0].indices.size()), vertexbuffers[VERTEX_INDEX_ROOM]);
         objects.push_back(newobject);
         newobject = new object();
-        newobject->create_object(static_cast<unsigned int>(data[0].indices.size()), vertexbuffers[VERTEX_INDEX_ROOM]);
+        newobject->create_object(static_cast<unsigned int>(roomdata[0].indices.size()), vertexbuffers[VERTEX_INDEX_ROOM]);
         objects.push_back(newobject);
 
         newobject = new object();
         newobject->create_object(static_cast<unsigned int>(vertexdata.indices.size()), vertexbuffers[VERTEX_INDEX_BOX]);
+        objects.push_back(newobject);
+
+        newobject = new object();
+        newobject->create_object(static_cast<unsigned int>(armadillodata[0].indices.size()), vertexbuffers[VERTEX_INDEX_ARMADILLO]);
+        objects.push_back(newobject);
+        newobject = new object();
+        newobject->create_object(static_cast<unsigned int>(armadillodata[0].indices.size()), vertexbuffers[VERTEX_INDEX_ARMADILLO]);
+        objects.push_back(newobject);
+        newobject = new object();
+        newobject->create_object(static_cast<unsigned int>(armadillodata[0].indices.size()), vertexbuffers[VERTEX_INDEX_ARMADILLO]);
+        objects.push_back(newobject);
+
+        newobject = new object();
+        newobject->create_object(static_cast<unsigned int>(bunnydata[0].indices.size()), vertexbuffers[VERTEX_INDEX_BUNNY]);
+        objects.push_back(newobject);
+        newobject = new object();
+        newobject->create_object(static_cast<unsigned int>(bunnydata[0].indices.size()), vertexbuffers[VERTEX_INDEX_BUNNY]);
+        objects.push_back(newobject);
+        newobject = new object();
+        newobject->create_object(static_cast<unsigned int>(bunnydata[0].indices.size()), vertexbuffers[VERTEX_INDEX_BUNNY]);
         objects.push_back(newobject);
     }
 
