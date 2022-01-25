@@ -21,7 +21,6 @@ layout(binding = 5) uniform camera
 	vec3 position;
 } cam;
 
-const int MAX_LIGHT = 16;
 
 layout(binding = 6) uniform Sun
 {

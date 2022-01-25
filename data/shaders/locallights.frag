@@ -14,7 +14,6 @@ layout(binding = 5) uniform camera
 	vec3 position;
 } cam;
 
-const int MAX_LIGHT = 16;
 
 layout(binding = 6) uniform lightdata
 {
@@ -23,6 +22,12 @@ layout(binding = 6) uniform lightdata
 
 void main()
 {	
+	if(lit.type == 1)
+	{
+		outColor = vec4(lit.color, 1.0);
+		return;
+	}
+
 	vec2 outTexcoord = gl_FragCoord.xy / vec2(1200, 800);
 
 	vec3 position = texture(posTex, outTexcoord).xyz;
@@ -55,8 +60,6 @@ void main()
 	{
 		discard;
 	}
-	//outColor = vec4(lit.color, 1.0);
-	//return;
 	
 	lightDir /= lightDistance;
 	float square_radius = lit.radius * lit.radius;

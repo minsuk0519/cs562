@@ -118,6 +118,9 @@ std::vector<light> local_light;
 lightSetting lightsetting;
 ObjectProperties objproperties;
 
+bool lightspacetoggle = false;
+bool nolocallight = false;
+
 //constant value
 constexpr glm::vec3 RIGHT = glm::vec3(1.0f, 0.0f, 0.0f);
 constexpr glm::vec3 FORWARD = glm::vec3(0.0f, 0.0f, -1.0f);
@@ -785,7 +788,7 @@ void updatebuffer()
     objects[8]->prop->albedoColor = glm::vec3(1.0f, 0.5f, 0.2f);
     objects[8]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(3.75f, 0.1f, -9.45f)) * glm::rotate(glm::mat4(1.0f), -PI_HALF, glm::vec3(1.0f, 0.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.36f, 0.295f, 0.3f));
     
-    objects[9]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 3.5f, -2.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, 2.0f, 2.0f));
+    objects[9]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 3.5f, -1.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, 2.0f, 2.0f));
 
     VkDeviceSize offset = 0;
     for (auto obj : objects)
@@ -848,8 +851,8 @@ void setupbuffer()
     sun.position = glm::vec3(0.0, 0.0f, 0.0f);
     sun.radius = 10.1f;
 
-    local_light.push_back(light{ glm::vec3(-4.0f, 6.0f, -10.0f), 15.0f, glm::vec3(0.0f, 0.0f, 0.0f), 0, glm::vec3(20.0f, 0.0f, 0.0f) });
-    local_light.push_back(light{ glm::vec3(4.0f, 6.0f, -10.0f),  10.0f, glm::vec3(0.0f, 0.0f, 0.0f), 0, glm::vec3(0.0f, 0.0f, 15.0f) });
+    local_light.push_back(light{ glm::vec3(-4.0f, 6.0f, -10.0f), 10.0f, glm::vec3(0.0f, 0.0f, 0.0f), 0, glm::vec3(20.0f, 0.0f, 0.0f) });
+    local_light.push_back(light{ glm::vec3(4.0f, 6.0f, -10.0f),  5.0f, glm::vec3(0.0f, 0.0f, 0.0f), 0, glm::vec3(0.0f, 0.0f, 15.0f) });
 
 
     for (float row = 0.2f; row < PI_HALF; row += PI_HALF / 6.0f)
@@ -863,7 +866,7 @@ void setupbuffer()
             float s = 2.0 * sin(glm::radians(angle));
             float c = 2.0 * cos(glm::radians(angle));
 
-            local_light.push_back(light{ glm::vec3(c, 2.0f * row + 2.0f, s - 2.0f), angle * 0.01f, glm::vec3(0.0f, 0.0f, 0.0f), 0, hue });
+            local_light.push_back(light{ glm::vec3(c, 2.0f * row + 2.0f, s - 1.0f), angle * 0.01f, glm::vec3(0.0f, 0.0f, 0.0f), 0, hue });
         }
     }
 
@@ -1148,27 +1151,27 @@ int main(void)
                 if (ImGui::BeginMenu("SUN##Object"))
                 {
                     ImGui::DragFloat3("color##SUN", &sun.color.x);
-                    ImGui::DragFloat3("diraection##SUN", &sun.direction.x, 0.01f);
+                    ImGui::DragFloat3("direction##SUN", &sun.direction.x, 0.01f);
                     ImGui::DragFloat3("position##SUN", &sun.position.x, 0.005f);
                     ImGui::DragFloat("radius##SUN", &sun.radius, 0.01f, 0.0f, 5.0f);
 
                     ImGui::EndMenu();
                 }
 
-                if (ImGui::BeginMenu("LOCAL1##Object"))
+                if (ImGui::BeginMenu("LOCAL1LIGHT##Object"))
                 {
                     ImGui::DragFloat3("color##LOCAL1", &local_light[0].color.x);
-                    ImGui::DragFloat3("diraection##LOCAL1", &local_light[0].direction.x, 0.01f);
+                    ImGui::DragFloat3("direction##LOCAL1", &local_light[0].direction.x, 0.01f);
                     ImGui::DragFloat3("position##LOCAL1", &local_light[0].position.x, 0.005f);
                     ImGui::DragFloat("radius##LOCAL1", &local_light[0].radius, 0.01f, 0.0f, 50.0f);
 
                     ImGui::EndMenu();
                 }
 
-                if (ImGui::BeginMenu("LOCAL12##Object"))
+                if (ImGui::BeginMenu("LOCAL2LIGHT##Object"))
                 {
                     ImGui::DragFloat3("color##LOCAL12", &local_light[1].color.x);
-                    ImGui::DragFloat3("diraection##LOCAL12", &local_light[1].direction.x, 0.01f);
+                    ImGui::DragFloat3("direction##LOCAL12", &local_light[1].direction.x, 0.01f);
                     ImGui::DragFloat3("position##LOCAL12", &local_light[1].position.x, 0.005f);
                     ImGui::DragFloat("radius##LOCAL12", &local_light[1].radius, 0.01f, 0.0f, 50.0f);
 
@@ -1206,6 +1209,32 @@ int main(void)
                     ImGui::EndMenu();
                 }
 
+                {
+                    bool lightspacevisible = lightspacetoggle;
+                    ImGui::MenuItem("VisibleLightSpace", 0, &lightspacevisible);
+
+                    if (lightspacevisible != lightspacetoggle)
+                    {
+                        lightspacetoggle = lightspacevisible;
+                        if (lightspacetoggle)
+                        {
+                            for (auto& lit : local_light)
+                            {
+                                lit.type = LIGHT_TYPE::LIGHT_SPACE_DRAW;
+                            }
+                        }
+                        else
+                        {
+                            for (auto& lit : local_light)
+                            {
+                                lit.type = LIGHT_TYPE::LIGHT_NONE;
+                            }
+                        }
+                    }
+                }
+
+                ImGui::MenuItem("LocalLightDisabled", 0, &nolocallight);
+                
                 ImGui::EndMenu();
             }
 
@@ -1337,31 +1366,34 @@ int main(void)
 
             guiPtr->render(vulkanCommandBuffers[imageIndex]);
 
-            vkCmdBindPipeline(vulkanCommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, lightPipeline);
-
-            //local light pass
+            if (!nolocallight)
             {
-                std::array<uint32_t, 1> dynamicoffsets = { 0 };
-                for (auto lit : local_light)
-                {
-                    dynamicoffsets[0] += 64;
-                    vkCmdBindDescriptorSets(vulkanCommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, lightPipelineLayout, 0, 1, &lightDescriptorSet, static_cast<uint32_t>(dynamicoffsets.size()), dynamicoffsets.data());
+                vkCmdBindPipeline(vulkanCommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, lightPipeline);
 
-                    render::draw(vulkanCommandBuffers[imageIndex], vertexbuffers[VERTEX_INDEX_SPHERE_POSONLY]);
+                //local light pass
+                {
+                    std::array<uint32_t, 1> dynamicoffsets = { 0 };
+                    for (auto lit : local_light)
+                    {
+                        dynamicoffsets[0] += 64;
+                        vkCmdBindDescriptorSets(vulkanCommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, lightPipelineLayout, 0, 1, &lightDescriptorSet, static_cast<uint32_t>(dynamicoffsets.size()), dynamicoffsets.data());
+
+                        render::draw(vulkanCommandBuffers[imageIndex], vertexbuffers[VERTEX_INDEX_SPHERE_POSONLY]);
+                    }
                 }
-            }
 
-            vkCmdBindPipeline(vulkanCommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, diffusePipeline);
-            //draw local_light
-            {
-                std::array<uint32_t, 1> dynamicoffsets = { 128 * static_cast<uint32_t>(objects.size()) };
-                for (auto lit : local_light)
+                vkCmdBindPipeline(vulkanCommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, diffusePipeline);
+                //draw local_light
                 {
-                    vkCmdBindDescriptorSets(vulkanCommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, diffusePipelineLayout, 0, 1, &diffuseDescriptorSet, static_cast<uint32_t>(dynamicoffsets.size()), dynamicoffsets.data());
+                    std::array<uint32_t, 1> dynamicoffsets = { 128 * static_cast<uint32_t>(objects.size()) };
+                    for (auto lit : local_light)
+                    {
+                        vkCmdBindDescriptorSets(vulkanCommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, diffusePipelineLayout, 0, 1, &diffuseDescriptorSet, static_cast<uint32_t>(dynamicoffsets.size()), dynamicoffsets.data());
 
-                    render::draw(vulkanCommandBuffers[imageIndex], vertexbuffers[VERTEX_INDEX_BOX_POSONLY]);
+                        render::draw(vulkanCommandBuffers[imageIndex], vertexbuffers[VERTEX_INDEX_BOX_POSONLY]);
 
-                    dynamicoffsets[0] += 128;
+                        dynamicoffsets[0] += 128;
+                    }
                 }
             }
 
