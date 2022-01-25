@@ -56,7 +56,7 @@ vec3 calcLight(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 albedo, vec3 light
 		
 	vec3 kS = F;
 	vec3 kD = vec3(1.0) - kS;
-	kD *= 1.0 - metal;	  
+	kD *= 1.0 - metal;
 
 	return (kD * albedo / PI + specular) * NdotL * lightColor;// * radiance;
 }

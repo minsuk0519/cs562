@@ -4,8 +4,6 @@
 
 layout(location = 0) out vec4 outColor;
 
-layout(location = 0) in vec2 outTexcoord;
-
 layout(binding = 1) uniform sampler2D posTex;
 layout(binding = 2) uniform sampler2D normTex;
 layout(binding = 3) uniform sampler2D texTex;
@@ -25,6 +23,8 @@ layout(binding = 6) uniform lightdata
 
 void main()
 {	
+	vec2 outTexcoord = gl_FragCoord.xy / vec2(1200, 800);
+
 	vec3 position = texture(posTex, outTexcoord).xyz;
 	vec3 normal = (texture(normTex, outTexcoord).xyz);
 	vec4 texTexData = texture(texTex, outTexcoord);
@@ -48,6 +48,7 @@ void main()
 	vec3 resultColor = vec3(0,0,0);
 		
 	vec3 lightpos = lit.position;
+		
 	vec3 lightDir = (lightpos - position);
 	float lightDistance = length(lightDir);
 	if(lightDistance > lit.radius)
@@ -57,8 +58,9 @@ void main()
 	
 	lightDir /= lightDistance;
 	float square_radius = lit.radius * lit.radius;
-	float quad_attenuation_value = (square_radius + 1) / square_radius;
-	float attenuation = (quad_attenuation_value) / (lightDistance * lightDistance + 1) + 1 - quad_attenuation_value;
+	float square_light_distance = lightDistance * lightDistance;
+	const float slope = 10;
+	float attenuation = (square_radius - square_light_distance) / (slope * square_light_distance + square_radius);
 	
 	resultColor += calcLight(lightDir, viewDir, normal, albedo, lit.color, roughness, metal, F0) * attenuation;
 		
