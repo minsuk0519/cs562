@@ -55,6 +55,8 @@ void main()
 	{
 		discard;
 	}
+	//outColor = vec4(lit.color, 1.0);
+	//return;
 	
 	lightDir /= lightDistance;
 	float square_radius = lit.radius * lit.radius;

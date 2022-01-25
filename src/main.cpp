@@ -785,7 +785,7 @@ void updatebuffer()
     objects[8]->prop->albedoColor = glm::vec3(1.0f, 0.5f, 0.2f);
     objects[8]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(3.75f, 0.1f, -9.45f)) * glm::rotate(glm::mat4(1.0f), -PI_HALF, glm::vec3(1.0f, 0.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.36f, 0.295f, 0.3f));
     
-    objects[9]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 6.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
+    objects[9]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 3.5f, -2.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, 2.0f, 2.0f));
 
     VkDeviceSize offset = 0;
     for (auto obj : objects)
@@ -801,7 +801,7 @@ void updatebuffer()
     {
         ObjectProperties prop;
 
-        prop.albedoColor = lit.color;
+        prop.albedoColor = glm::normalize(lit.color);
         prop.modelMat = glm::translate(glm::mat4(1.0f), lit.position) * glm::scale(glm::mat4(1.0f), glm::vec3(LIGHT_SPHERE_SIZE));
 
         void* data;
@@ -848,21 +848,22 @@ void setupbuffer()
     sun.position = glm::vec3(0.0, 0.0f, 0.0f);
     sun.radius = 10.1f;
 
-    local_light.push_back(light{ glm::vec3(-4.0f, 6.0f, -10.0f), 10.0f, glm::vec3(0.0f, 0.0f, 0.0f), 0, glm::vec3(10.0f, 0.0f, 0.0f) });
-    local_light.push_back(light{ glm::vec3(4.0f, 6.0f, -10.0f), 10.0f, glm::vec3(0.0f, 0.0f, 0.0f), 0, glm::vec3(10.0f, 10.0f, 10.0f) });
+    local_light.push_back(light{ glm::vec3(-4.0f, 6.0f, -10.0f), 15.0f, glm::vec3(0.0f, 0.0f, 0.0f), 0, glm::vec3(20.0f, 0.0f, 0.0f) });
+    local_light.push_back(light{ glm::vec3(4.0f, 6.0f, -10.0f),  10.0f, glm::vec3(0.0f, 0.0f, 0.0f), 0, glm::vec3(0.0f, 0.0f, 15.0f) });
 
 
-    for (float row = 0.075f; row < PI_HALF; row += PI_HALF / 6.0f)
+    for (float row = 0.2f; row < PI_HALF; row += PI_HALF / 6.0f)
     {
         for (float angle = 0.0f; angle < 360.0f; angle += 36.0f)
         {
             glm::vec3 hue;
             ImGui::ColorConvertHSVtoRGB(angle / 360.0f, 1.0f - 2.0f * row / PI, 1.0f, hue.r, hue.g, hue.b);
+            hue *= 20.0f;
 
-            float s = sin(glm::radians(angle));
-            float c = cos(glm::radians(angle));
+            float s = 2.0 * sin(glm::radians(angle));
+            float c = 2.0 * cos(glm::radians(angle));
 
-            local_light.push_back(light{ glm::vec3(c, row + 5.0f, s), row * 5.0f, glm::vec3(0.0f, 0.0f, 0.0f), 0, hue });
+            local_light.push_back(light{ glm::vec3(c, 2.0f * row + 2.0f, s - 2.0f), angle * 0.01f, glm::vec3(0.0f, 0.0f, 0.0f), 0, hue });
         }
     }
 
