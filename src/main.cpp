@@ -486,7 +486,7 @@ void createRenderpass()
         {VK_FORMAT_R16G16B16A16_SFLOAT, 0, renderpass::ATTACHMENT_NONE},
         {VK_FORMAT_R16G16B16A16_SFLOAT, 1, renderpass::ATTACHMENT_NONE},
         {VK_FORMAT_R16G16B16A16_SFLOAT, 2, renderpass::ATTACHMENT_NONE},
-        {VK_FORMAT_R16G16B16A16_SFLOAT, 3, renderpass::ATTACHMENT_NONE},
+        {VK_FORMAT_R8G8B8A8_SNORM, 3, renderpass::ATTACHMENT_NONE},
         {vulkanDepthFormat, 4, renderpass::ATTACHMENT_DEPTH},
     });
 
@@ -764,7 +764,7 @@ void updatebuffer()
     vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_PROJECTION].memory);
 
     static float a = 0.0f;
-    a += 0.001f;
+    //a += 0.001f;
 
     for (auto obj : objects)
     {
@@ -773,10 +773,11 @@ void updatebuffer()
         obj->prop->roughness = objproperties.roughness;
     }
 
-    objects[0]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(3.75f, -0.56f, -10.0f)) * glm::rotate(glm::mat4(1.0f), PI + a, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(20.0f));
-    objects[6]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(-3.75f, 1.7f, -10.0f)) * glm::rotate(glm::mat4(1.0f), -a, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.03f));
+    objects[0]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(3.75f, -0.56f, -10.0f)) * glm::rotate(glm::mat4(1.0f), a, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(20.0f));
+    objects[6]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(-3.75f, 1.7f, -10.0f)) * glm::rotate(glm::mat4(1.0f), PI - a, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.03f));
 
     objects[1]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 3.5f, -12.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
+    objects[2]->prop->albedoColor = glm::vec3(0.4f, 0.4f, 0.4f);
     objects[2]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(15.0f, 0.2f, 15.0f));
 
     objects[3]->prop->albedoColor = glm::vec3(0.4f, 0.1f, 0.4f);
@@ -878,7 +879,7 @@ void setupbuffer()
             float s = 2.0f * sin(glm::radians(angle));
             float c = 2.0f * cos(glm::radians(angle));
 
-            local_light.push_back(light{ glm::vec3(c, 2.0f * row + 2.0f, s - 0.5f), angle * 0.01f, glm::vec3(0.0f, 0.0f, 0.0f), 0, hue });
+            local_light.push_back(light{ glm::vec3(c, 2.0f * row + 2.0f, s - 0.5f), angle * 0.005f, glm::vec3(0.0f, 0.0f, 0.0f), 0, hue });
         }
     }
 
@@ -892,7 +893,7 @@ void setupbuffer()
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, windowPtr->windowWidth, windowPtr->windowHeight, posframebufferimage);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, windowPtr->windowWidth, windowPtr->windowHeight, normframebufferimage);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, windowPtr->windowWidth, windowPtr->windowHeight, texframebufferimage);
-    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, windowPtr->windowWidth, windowPtr->windowHeight, albedoframebufferimage);
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R8G8B8A8_SNORM, windowPtr->windowWidth, windowPtr->windowHeight, albedoframebufferimage);
 
     {
         std::vector<float> vertices = {
@@ -1189,8 +1190,6 @@ int main(void)
                 {
                     ImGui::DragFloat3("color##SUN", &sun.color.x);
                     ImGui::DragFloat3("direction##SUN", &sun.direction.x, 0.01f);
-                    ImGui::DragFloat3("position##SUN", &sun.position.x, 0.005f);
-                    ImGui::DragFloat("radius##SUN", &sun.radius, 0.01f, 0.0f, 5.0f);
 
                     ImGui::EndMenu();
                 }
@@ -1198,7 +1197,6 @@ int main(void)
                 if (ImGui::BeginMenu("LOCAL1LIGHT##Object"))
                 {
                     ImGui::DragFloat3("color##LOCAL1", &local_light[0].color.x);
-                    ImGui::DragFloat3("direction##LOCAL1", &local_light[0].direction.x, 0.01f);
                     ImGui::DragFloat3("position##LOCAL1", &local_light[0].position.x, 0.005f);
                     ImGui::DragFloat("radius##LOCAL1", &local_light[0].radius, 0.01f, 0.0f, 50.0f);
 
@@ -1208,7 +1206,6 @@ int main(void)
                 if (ImGui::BeginMenu("LOCAL2LIGHT##Object"))
                 {
                     ImGui::DragFloat3("color##LOCAL12", &local_light[1].color.x);
-                    ImGui::DragFloat3("direction##LOCAL12", &local_light[1].direction.x, 0.01f);
                     ImGui::DragFloat3("position##LOCAL12", &local_light[1].position.x, 0.005f);
                     ImGui::DragFloat("radius##LOCAL12", &local_light[1].radius, 0.01f, 0.0f, 50.0f);
 
@@ -1235,12 +1232,13 @@ int main(void)
             {
                 if (ImGui::BeginMenu("Deferred Target"))
                 {
-                    bool deferred[4] = { false };
+                    bool deferred[5] = { false };
                     deferred[lightsetting.outputTex] = true;
 
                     if (ImGui::MenuItem("Position##Target", "", deferred[outputMode::POSITION])) lightsetting.outputTex = outputMode::POSITION;
                     else if (ImGui::MenuItem("Normal##Target", "", deferred[outputMode::NORMAL])) lightsetting.outputTex = outputMode::NORMAL;
                     else if (ImGui::MenuItem("TextureCoordinate##Target", "", deferred[outputMode::TEXTURECOORDINATE])) lightsetting.outputTex = outputMode::TEXTURECOORDINATE;
+                    else if (ImGui::MenuItem("ObjectColor##Target", "", deferred[outputMode::ALBEDO])) lightsetting.outputTex = outputMode::ALBEDO;
                     else if (ImGui::MenuItem("Lighting##Target", "", deferred[outputMode::LIGHTING])) lightsetting.outputTex = outputMode::LIGHTING;
 
                     ImGui::EndMenu();

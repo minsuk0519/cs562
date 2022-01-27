@@ -24,6 +24,7 @@ enum outputMode
 	POSITION = 1,
 	NORMAL = 2,
 	TEXTURECOORDINATE = 3,
+	ALBEDO = 4,
 };
 
 struct lightSetting

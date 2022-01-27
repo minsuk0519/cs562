@@ -29,19 +29,29 @@ layout(binding = 6) uniform Sun
 
 void main()
 {
+	if(length(texture(normTex, outTexcoord).xyz) < 0.1)
+	{
+		discard;
+	}
+
 	if(setting.outputTex == 1)
 	{
-		outColor = texture(posTex, outTexcoord);
+		outColor = (texture(posTex, outTexcoord) + vec4(2,1,6,0)) / 2;
 		return;
 	}
 	else if(setting.outputTex == 2)
 	{
-		outColor = texture(normTex, outTexcoord);
+		outColor = (texture(normTex, outTexcoord) + vec4(1,1,1,0)) / 2;
 		return;
 	}
 	else if(setting.outputTex == 3)
 	{
 		outColor = texture(texTex, outTexcoord);
+		return;
+	}
+	else if(setting.outputTex == 4)
+	{
+		outColor = texture(albedoTex, outTexcoord);
 		return;
 	}
 	
@@ -53,7 +63,7 @@ void main()
 	float metal = texTexData.w;
 	vec3 albedo = texture(albedoTex, outTexcoord).xyz;
 	
-	vec3 viewDir = cam.position - position;
+	vec3 viewDir = normalize(cam.position - position);
 	
 	vec3 F0 = vec3(0.04); 
     F0 = mix(F0, albedo, metal);

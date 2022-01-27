@@ -14,6 +14,8 @@ bool window::create_window()
     }
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    //set window not resizable
+    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
     glfwWindow = glfwCreateWindow(windowWidth, windowHeight, title.c_str(), nullptr, nullptr);
 

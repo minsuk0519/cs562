@@ -212,7 +212,7 @@ bool renderpass::create_renderpass(VkDevice device, VkRenderPass& renderpass, st
         attachmentdescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
         attachmentdescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         attachmentdescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        attachmentdescription.initialLayout = (attachdesc.flag & ATTACHMENT_DEPTH) ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
+        attachmentdescription.initialLayout = (attachdesc.flag & ATTACHMENT_DEPTH && attachdesc.flag & ATTACHMENT_NO_CLEAR_INITIAL) ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
         attachmentdescription.finalLayout = (attachdesc.flag & ATTACHMENT_FINAL_SWAPCHAIN) ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : (attachdesc.flag & ATTACHMENT_DEPTH) ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
         renderpassAttachments.push_back(attachmentdescription);
