@@ -140,6 +140,7 @@ bool memory::create_depth_image(device* devicePtr, VkQueue graphicsqueue, VkForm
     imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     imageCreateInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    if(width == 2048) imageCreateInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
     if (vkCreateImage(vulkandevice, &imageCreateInfo, nullptr, &image.image) != VK_SUCCESS)

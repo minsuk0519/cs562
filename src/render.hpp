@@ -38,9 +38,8 @@ namespace renderpass
 	enum attachmentflag
 	{
 		ATTACHMENT_NONE = 0x0000,
-		ATTACHMENT_FINAL_SWAPCHAIN = 0x0001,
-		ATTACHMENT_DEPTH = 0x0002,
-		ATTACHMENT_NO_CLEAR_INITIAL = 0x0004,
+		ATTACHMENT_DEPTH = 0x0001,
+		ATTACHMENT_NO_CLEAR_INITIAL = 0x0002,
 	};
 	typedef uint32_t attachmentflagbits;
 
@@ -48,6 +47,8 @@ namespace renderpass
 	{
 		VkFormat format;
 		uint32_t location;
+		VkImageLayout initiallayout;
+		VkImageLayout finallayout;
 		attachmentflagbits flag;
 	};
 

@@ -6,6 +6,9 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <glm/glm.hpp>
+
+#include <iostream>
 
 namespace helper
 {
@@ -23,3 +26,5 @@ namespace helper
 
     float get_time(bool timestamp = false);
 }
+
+std::ostream& operator<<(std::ostream& os, const glm::vec3 vec);
