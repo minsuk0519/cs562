@@ -117,12 +117,18 @@ constexpr uint32_t shadowmapSize = 2048;
 Image shadowmapframebufferimage;
 VkDescriptorSetLayout shadowmapDescriptorSetLayout = VK_NULL_HANDLE;
 VkPipeline shadowmapPipeline = VK_NULL_HANDLE;
-VkDescriptorPool shadowmapDescriptorPool = VK_NULL_HANDLE;
 VkDescriptorSet shadowmapDescriptorSet = VK_NULL_HANDLE;
 VkPipelineLayout shadowmapPipelineLayout = VK_NULL_HANDLE;
 VkFormat shadowmapFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
 Image shadowmapDepthImage;
 
+//blur shadowmap
+VkDescriptorSetLayout blurshadowDescriptorSetLayout = VK_NULL_HANDLE;
+VkPipelineLayout blurshadowPipelineLayout = VK_NULL_HANDLE;
+VkDescriptorSet blurshadowDescriptorSet = VK_NULL_HANDLE;
+VkPipeline blurshadowPipeline = VK_NULL_HANDLE;
+VkCommandBuffer blurshadowCommandbuffer = VK_NULL_HANDLE;
+VkSemaphore blurshadowSemaphore = VK_NULL_HANDLE;
 
 std::vector<object*> objects;
 glm::vec3 camerapos = glm::vec3(0.0f, 2.0f, 5.0f);
@@ -461,6 +467,7 @@ void createSemaphoreFence()
     vkCreateSemaphore(devicePtr->vulkanDevice, &createinfo, VK_NULL_HANDLE, &vulkanRenderSemaphore);
     vkCreateSemaphore(devicePtr->vulkanDevice, &createinfo, VK_NULL_HANDLE, &vulkanPresentSemaphore);
     vkCreateSemaphore(devicePtr->vulkanDevice, &createinfo, VK_NULL_HANDLE, &gbuffersemaphore);
+    vkCreateSemaphore(devicePtr->vulkanDevice, &createinfo, VK_NULL_HANDLE, &blurshadowSemaphore);
 
     VkFenceCreateInfo fenceCreateInfo{};
     fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -528,6 +535,7 @@ void createdescriptorset()
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 8 },
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 5 },
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 9 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 },
         });
 
     //gbuffer pass
@@ -559,7 +567,7 @@ void createdescriptorset()
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, {}, {vulkanSampler, normframebufferimage.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, {}, {vulkanSampler, texframebufferimage.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, {}, {vulkanSampler, albedoframebufferimage.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, {}, {vulkanSampler, shadowmapframebufferimage.imageView,  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, {}, {vulkanSampler, shadowmapframebufferimage.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 5, {uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].range}, {}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 6, {uniformbuffers[UNIFORM_INDEX_CAMERA].buf, 0, uniformbuffers[UNIFORM_INDEX_CAMERA].range}, {}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 7, {uniformbuffers[UNIFORM_INDEX_LIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT].range}, {}},
@@ -607,6 +615,15 @@ void createdescriptorset()
     descriptor::write_descriptorset(devicePtr->vulkanDevice, shadowmapDescriptorSet, {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, {uniformbuffers[UNIFORM_INDEX_LIGHT_PROJECTION].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT_PROJECTION].range}, {}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, {uniformbuffers[UNIFORM_INDEX_OBJECT].buf, 0, uniformbuffers[UNIFORM_INDEX_OBJECT].range}, {}},
+        });
+
+    //blurshadow
+    descriptor::create_descriptorset_layout(devicePtr->vulkanDevice, blurshadowDescriptorSetLayout, blurshadowDescriptorSet, vulkanDescriptorPool, {
+        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0},
+        });
+
+    descriptor::write_descriptorset(devicePtr->vulkanDevice, blurshadowDescriptorSet, {
+        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, {}, {vulkanSampler, shadowmapframebufferimage.imageView, VK_IMAGE_LAYOUT_GENERAL}},
         });
 }
 
@@ -804,6 +821,17 @@ void createPipeline()
                 {"data/shaders/shadowmapping.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
             });
     }
+
+    //blur shadow pass
+    {
+        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, blurshadowDescriptorSetLayout, blurshadowPipelineLayout);
+
+        VkComputePipelineCreateInfo pipelineCreateInfo{};
+        pipelineCreateInfo.layout = blurshadowPipelineLayout;
+
+        pipeline::create_compute_pipeline(devicePtr->vulkanDevice, pipelineCreateInfo, blurshadowPipeline, vulkanPipelineCache, 
+            {"data/shaders/blurshadow.comp.spv", VK_SHADER_STAGE_COMPUTE_BIT});
+    }
 }
 
 void createcommandbuffer()
@@ -825,6 +853,12 @@ void createcommandbuffer()
 
     commandBufferAllocateInfo = devicePtr->commandbuffer_allocateinfo(static_cast<uint32_t>(1));
     if (vkAllocateCommandBuffers(devicePtr->vulkanDevice, &commandBufferAllocateInfo, &shadowmapCommandbuffer) != VK_SUCCESS)
+    {
+        std::cout << "failed to allocate commandbuffers!" << std::endl;
+    }
+
+    commandBufferAllocateInfo = devicePtr->commandbuffer_allocateinfo(static_cast<uint32_t>(1));
+    if (vkAllocateCommandBuffers(devicePtr->vulkanDevice, &commandBufferAllocateInfo, &blurshadowCommandbuffer) != VK_SUCCESS)
     {
         std::cout << "failed to allocate commandbuffers!" << std::endl;
     }
@@ -1110,6 +1144,7 @@ void freebuffer()
     memPtr->free_image(devicePtr->vulkanDevice, albedoframebufferimage);
 
     memPtr->free_image(devicePtr->vulkanDevice, shadowmapframebufferimage);
+    memPtr->free_image(devicePtr->vulkanDevice, shadowmapDepthImage);
 
     memPtr->free_image(devicePtr->vulkanDevice, depthImage);
 }
@@ -1492,7 +1527,6 @@ int main(void)
                 std::cout << "failed to end commnad buffer!" << std::endl;
                 return -1;
             }
-
         }
 
         {

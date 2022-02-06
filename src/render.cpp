@@ -36,6 +36,27 @@ bool pipeline::create_pipieline(VkDevice device, VkGraphicsPipelineCreateInfo& p
     return true;
 }
 
+bool pipeline::create_compute_pipeline(VkDevice device, VkComputePipelineCreateInfo& pipelinecreateInfo, VkPipeline& pipeline, VkPipelineCache pipelinecache, shaderinput shaderinfo)
+{
+    pipelinecreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    pipelinecreateInfo.flags = 0;
+    pipelinecreateInfo.basePipelineIndex = -1;
+    pipelinecreateInfo.basePipelineHandle = VK_NULL_HANDLE;
+
+    pipelinecreateInfo.stage = helper::loadShader(device, shaderinfo.filepath, shaderinfo.shaderflag);
+
+    if (vkCreateComputePipelines(device, pipelinecache, 1, &pipelinecreateInfo, VK_NULL_HANDLE, &pipeline) != VK_SUCCESS)
+    {
+        std::cout << "failed to create graphics pipeline!" << std::endl;
+
+        return false;
+    }
+
+    vkDestroyShaderModule(device, pipelinecreateInfo.stage.module, VK_NULL_HANDLE);
+
+    return true;
+}
+
 bool pipeline::create_pipelinelayout(VkDevice device, VkDescriptorSetLayout descriptorsetlayout, VkPipelineLayout& pipelinelayout)
 {
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{};

@@ -27,6 +27,7 @@ namespace pipeline
 	VkPipelineVertexInputStateCreateInfo getVertexinputAttributeDescription(VkVertexInputBindingDescription* vertexinputbinding, std::vector<VkVertexInputAttributeDescription>& vertexinputdescription);
 
 	bool create_pipieline(VkDevice device, VkGraphicsPipelineCreateInfo& pipelineCreateInfo, VkPipeline& pipeline, VkPipelineCache pipelinecache, std::vector<shaderinput> shaderinfos);
+	bool create_compute_pipeline(VkDevice device, VkComputePipelineCreateInfo& pipelinecreateInfo, VkPipeline& pipeline, VkPipelineCache pipelinecache, shaderinput shaderinfo);
 	bool create_pipelinelayout(VkDevice device, VkDescriptorSetLayout descriptorsetlayout, VkPipelineLayout& pipelinelayout);
 
 	void closepipeline(VkDevice device, VkPipeline& pipeline);
@@ -86,4 +87,52 @@ namespace descriptor
 namespace render
 {
 	void draw(VkCommandBuffer commandbuffer, VertexBuffer vertexbuffer);
+
+	//array
+	enum DESCRIPTOR_INDEX
+	{
+		DESCRIPTOR_GBUFFER = 0,
+		DESCRIPTOR_LIGHT,
+		DESCRIPTOR_LOCAL_LIGHT,
+		DESCRIPTOR_DIFFUSE,
+		DESCRIPTOR_SHADOWMAP,
+		DESCRIPTOR_SHADOWMAP_BLUR,
+		DESCRIPTOR_MAX,
+	};
+
+	enum PIPELINE_INDEX
+	{
+		PIPELINE_GBUFFER = 0,
+		PIPELINE_LIHGT,
+		PIPELINE_LOCAL_LIGHT,
+		PIPELINE_DIFFUSE,
+		PIPELINE_SHADOWMAP,
+		PIPELINE_SHADOWMAP_BLUR,
+		PIPELINE_MAX,
+	};
+
+	enum SEMAPHORE_INDEX
+	{
+		SEMAPHORE_PRESENT = 0,
+		SEMAPHORE_RENDER,
+		SEMAPHORE_GBUFFER,
+		SEMAPHORE_SHADOWMAP_BLUR,
+		SEMAPHORE_MAX,
+	};
+
+	//vector
+	enum COMMANDBUFFER_INDEX
+	{
+		COMMANDBUFFER_GBUFFER = 0,
+		COMMANDBUFFER_SHADOWMAP,
+		COMMANDBUFFER_SHADOWMAP_BLUR,
+		COMMANDBUFFER_SWAPCHAIN
+	};
+
+	enum RENDERPASS_INDEX
+	{
+		RENDERPASS_GBUFFER = 0,
+		RENDERPASS_SHADOWMAP,
+		RENDERPASS_SWAPCHAIN,
+	};
 }
