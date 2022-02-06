@@ -88,7 +88,8 @@ namespace render
 {
 	void draw(VkCommandBuffer commandbuffer, VertexBuffer vertexbuffer);
 
-	//array
+	//=======array=======
+	//descriptorsetlayout & descriptorset
 	enum DESCRIPTOR_INDEX
 	{
 		DESCRIPTOR_GBUFFER = 0,
@@ -100,6 +101,7 @@ namespace render
 		DESCRIPTOR_MAX,
 	};
 
+	//pipelinelayout & pipeline
 	enum PIPELINE_INDEX
 	{
 		PIPELINE_GBUFFER = 0,
@@ -111,6 +113,7 @@ namespace render
 		PIPELINE_MAX,
 	};
 
+	//semaphore
 	enum SEMAPHORE_INDEX
 	{
 		SEMAPHORE_PRESENT = 0,
@@ -120,19 +123,23 @@ namespace render
 		SEMAPHORE_MAX,
 	};
 
-	//vector
+	//=======vector=======
+	//commandbuffer
 	enum COMMANDBUFFER_INDEX
 	{
 		COMMANDBUFFER_GBUFFER = 0,
 		COMMANDBUFFER_SHADOWMAP,
 		COMMANDBUFFER_SHADOWMAP_BLUR,
-		COMMANDBUFFER_SWAPCHAIN
+		COMMANDBUFFER_SWAPCHAIN,
+		COMMANDBUFFER_MAX,
 	};
 
+	//renderpass(array) & framebuffer(vector)
 	enum RENDERPASS_INDEX
 	{
 		RENDERPASS_GBUFFER = 0,
 		RENDERPASS_SHADOWMAP,
 		RENDERPASS_SWAPCHAIN,
+		RENDERPASS_MAX,
 	};
 }
