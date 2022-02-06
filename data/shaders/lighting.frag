@@ -68,7 +68,7 @@ void main()
 	vec2 shadowmapCoord = shadowPosition.xy / shadowPosition.w;
 	shadowmapCoord = shadowmapCoord * 0.5 + vec2(0.5, 0.5);
 	float depth = texture(depthTex, shadowmapCoord).r;
-	if(depth > - 0.0001 + (shadowPosition.w / 1000.0)) depth = 1.0;
+	if(depth > (shadowPosition.w - 0.1)) depth = 1.0;
 	else depth = 0.0;		
 	
 	vec3 normal = normalize(texture(normTex, outTexcoord).xyz);

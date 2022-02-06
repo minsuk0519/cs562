@@ -120,6 +120,8 @@ VkPipeline shadowmapPipeline = VK_NULL_HANDLE;
 VkDescriptorPool shadowmapDescriptorPool = VK_NULL_HANDLE;
 VkDescriptorSet shadowmapDescriptorSet = VK_NULL_HANDLE;
 VkPipelineLayout shadowmapPipelineLayout = VK_NULL_HANDLE;
+VkFormat shadowmapFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
+Image shadowmapDepthImage;
 
 
 std::vector<object*> objects;
@@ -511,11 +513,12 @@ void createRenderpass()
 
     //shadowmap pass
     renderpass::create_renderpass(devicePtr->vulkanDevice, shadowmapRenderPass, {
-        {VK_FORMAT_D32_SFLOAT, 0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, renderpass::ATTACHMENT_DEPTH},
+        {VK_FORMAT_R32G32B32A32_SFLOAT, 0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, renderpass::ATTACHMENT_NONE},
+        {vulkanDepthFormat, 1, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, renderpass::ATTACHMENT_DEPTH},
     });
 
     renderpass::create_framebuffer(devicePtr->vulkanDevice, shadowmapRenderPass, shadowmapFramebuffer, shadowmapSize, shadowmapSize, {
-        shadowmapframebufferimage.imageView
+        shadowmapframebufferimage.imageView, shadowmapDepthImage.imageView
         });
 }
 
@@ -524,7 +527,7 @@ void createdescriptorset()
     descriptor::create_descriptorpool(devicePtr->vulkanDevice, vulkanDescriptorPool, {
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 8 },
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 5 },
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5 },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 9 },
         });
 
     //gbuffer pass
@@ -556,7 +559,7 @@ void createdescriptorset()
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, {}, {vulkanSampler, normframebufferimage.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, {}, {vulkanSampler, texframebufferimage.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, {}, {vulkanSampler, albedoframebufferimage.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, {}, {vulkanSampler, shadowmapframebufferimage.imageView,  VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL}},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, {}, {vulkanSampler, shadowmapframebufferimage.imageView,  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 5, {uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].range}, {}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 6, {uniformbuffers[UNIFORM_INDEX_CAMERA].buf, 0, uniformbuffers[UNIFORM_INDEX_CAMERA].range}, {}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 7, {uniformbuffers[UNIFORM_INDEX_LIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT].range}, {}},
@@ -779,6 +782,8 @@ void createPipeline()
         VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo = pipeline::getInputAssemblyCreateInfo();
         VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo = pipeline::getRasterizationCreateInfo(VK_CULL_MODE_BACK_BIT);
         VkPipelineColorBlendAttachmentState pipelinecolorblendattachment = pipeline::getColorBlendAttachment(VK_FALSE);
+        std::vector<VkPipelineColorBlendAttachmentState> pipelinecolorblendattachments = { pipelinecolorblendattachment };
+        VkPipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo = pipeline::getColorBlendCreateInfo(static_cast<uint32_t>(pipelinecolorblendattachments.size()), pipelinecolorblendattachments.data());
         VkPipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo = pipeline::getMultisampleCreateInfo(VK_SAMPLE_COUNT_1_BIT);
         VkViewport viewport = pipeline::getViewport(shadowmapSize, shadowmapSize);
         VkRect2D scissor = pipeline::getScissor(shadowmapSize, shadowmapSize);
@@ -789,7 +794,7 @@ void createPipeline()
 
         pipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
         pipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
-        pipelineCreateInfo.pColorBlendState = VK_NULL_HANDLE;
+        pipelineCreateInfo.pColorBlendState = &pipelineColorBlendStateCreateInfo;
         pipelineCreateInfo.pMultisampleState = &pipelineMultisampleStateCreateInfo;
         pipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
         pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
@@ -844,7 +849,7 @@ void updatebuffer()
     memcpy(data0, &proj, uniformbuffers[UNIFORM_INDEX_PROJECTION].size);
     vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_PROJECTION].memory);
 
-    proj.projMat = glm::perspective(glm::radians(45.0f), fov, 0.1f, 1000.0f);
+    proj.projMat = glm::perspective(glm::radians(90.0f), fov, 0.1f, 1000.0f);
     proj.projMat[1][1] *= -1.0f;
     
     
@@ -860,7 +865,7 @@ void updatebuffer()
 
     glm::mat4 R = glm::mat4(glm::vec4(A, 0.0f), glm::vec4(B, 0.0f), glm::vec4(-V, 0.0f), glm::vec4(0, 0, 0, 1));
     R = glm::transpose(R);
-    glm::mat4 T = glm::translate(R, 20.0f * glm::vec3(sun.direction));
+    glm::mat4 T = glm::translate(R, 10.0f * glm::vec3(sun.direction));
 
     proj.viewMat = T;
 
@@ -984,7 +989,8 @@ void setupbuffer()
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, windowPtr->windowWidth, windowPtr->windowHeight, texframebufferimage);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R8G8B8A8_SNORM, windowPtr->windowWidth, windowPtr->windowHeight, albedoframebufferimage);
 
-    memPtr->create_depth_image(devicePtr, vulkanGraphicsQueue, VK_FORMAT_D32_SFLOAT, shadowmapSize, shadowmapSize, shadowmapframebufferimage);
+    memPtr->create_fb_image(devicePtr->vulkanDevice, shadowmapFormat, shadowmapSize, shadowmapSize, shadowmapframebufferimage);
+    memPtr->create_depth_image(devicePtr, vulkanGraphicsQueue, vulkanDepthFormat, shadowmapSize, shadowmapSize, shadowmapDepthImage);
 
     {
         std::vector<float> vertices = {
@@ -1444,9 +1450,9 @@ int main(void)
             VkCommandBufferBeginInfo commandBufferBeginInfo{};
             commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-            std::array<VkClearValue, 1> shadowmapclearValues;
-            //shadowmapclearValues[0].color = { { 0.25f, 0.25f, 0.25f, 1.0f } };
-            shadowmapclearValues[0].depthStencil = { 1.0f, 0 };
+            std::array<VkClearValue, 2> shadowmapclearValues;
+            shadowmapclearValues[0].color = { { 0.25f, 0.25f, 0.25f, 1.0f } };
+            shadowmapclearValues[1].depthStencil = { 1.0f, 0 };
 
             VkRenderPassBeginInfo renderPassBeginInfo{};
             renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;

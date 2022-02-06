@@ -202,6 +202,7 @@ bool renderpass::create_renderpass(VkDevice device, VkRenderPass& renderpass, st
     std::vector<VkAttachmentReference> colorReferences = {};
     VkAttachmentReference colorReference;
     colorReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    bool depth = false;
 
     for (auto attachdesc : attachmentDescriptions)
     {
@@ -219,6 +220,7 @@ bool renderpass::create_renderpass(VkDevice device, VkRenderPass& renderpass, st
         if (attachdesc.flag & ATTACHMENT_DEPTH)
         {
             depthReference.attachment = attachdesc.location;
+            depth = true;
         }
         else
         {
@@ -231,7 +233,7 @@ bool renderpass::create_renderpass(VkDevice device, VkRenderPass& renderpass, st
     subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpassDescription.colorAttachmentCount = static_cast<uint32_t>(colorReferences.size());
     subpassDescription.pColorAttachments = colorReferences.data();
-    subpassDescription.pDepthStencilAttachment = &depthReference;
+    subpassDescription.pDepthStencilAttachment = (depth) ? &depthReference : VK_NULL_HANDLE;
     subpassDescription.inputAttachmentCount = 0;
     subpassDescription.pInputAttachments = nullptr;
     subpassDescription.preserveAttachmentCount = 0;
