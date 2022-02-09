@@ -25,6 +25,32 @@ namespace helper
     std::vector<vertindex> readassimp(std::string file_path);
 
     float get_time(bool timestamp = false);
+
+    template <typename T>
+    struct changeData
+    {
+    private:
+        T prevalue;
+    public:
+        T value;
+        changeData(T v) : value(v) {}
+        bool isChanged() 
+        {
+            bool result = (prevalue != value);
+            prevalue = value;
+            return result; 
+        }
+        const changeData& operator=(const changeData& data)
+        {
+            value = data.value;
+            return this;
+        }
+        const changeData& operator=(const T& data)
+        {
+            value = data;
+            return this;
+        }
+    };
 }
 
 std::ostream& operator<<(std::ostream& os, const glm::vec3 vec);

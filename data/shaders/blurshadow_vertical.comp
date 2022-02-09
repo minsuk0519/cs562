@@ -1,10 +1,13 @@
 #version 460
 
-layout (local_size_x = 128, local_size_y = 1) in;
-layout (binding = 0, rgba32f) uniform image2D blurTarget;
+layout (local_size_x = 128, local_size_y = 1, local_size_z = 1) in;
+layout (binding = 0, rgba32f) uniform readonly image2D blurTarget;
+layout (binding = 1, rgba32f) uniform writeonly image2D blurOutput;
 
 const int w = 3;
 const float e = 2.718;
+
+shared vec4 v[128 + 2 * w + 1];
 
 void main()
 {
@@ -25,12 +28,19 @@ void main()
 	{
 		weight[i + w] /= sumWeight;
 	}
+	
+	ivec2 gpos = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+	uint threadid = gl_LocalInvocationID.x;
 
-	for (int i=start; i <= end; ++i) 
-	{   
-		vec4 data = imageLoad(blurTarget, ivec2(gl_GlobalInvocationID.x + i, gl_GlobalInvocationID.y));
-		rgba += data * weight[i + w];
+	v[threadid] = imageLoad(blurTarget, gpos + ivec2(-w, 0));
+	if(threadid <= 2 * w) v[threadid + 128] = imageLoad(blurTarget, gpos + ivec2(128-w, 0));
+	
+    barrier();
+	
+	for(int i = 0; i <= 2*w; ++i)
+	{
+		rgba += v[threadid + i] * weight[i];
 	}
-		
-	imageStore(blurTarget, ivec2(gl_GlobalInvocationID.xy), rgba);
+			
+	imageStore(blurOutput, gpos, rgba);
 }
