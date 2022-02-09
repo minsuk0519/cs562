@@ -73,6 +73,7 @@ VkDescriptorPool vulkanDescriptorPool = VK_NULL_HANDLE;
 std::vector<VkCommandBuffer> vulkanCommandBuffers;
 std::vector<VkFramebuffer> vulkanFramebuffers;
 
+std::array<VkCommandBuffer, render::COMPUTECMDBUFFER_MAX> vulkanComputeCommandBuffers;
 std::array<VkDescriptorSetLayout, render::DESCRIPTOR_MAX> vulkanDescriptorSetLayouts;
 std::array<VkDescriptorSet, render::DESCRIPTOR_MAX> vulkanDescriptorSets;
 std::array<VkPipeline, render::PIPELINE_MAX> vulkanPipelines;
@@ -95,6 +96,7 @@ ObjectProperties objproperties;
 
 bool lightspacetoggle = false;
 bool nolocallight = false;
+bool blurshadow = true;
 
 //constant value
 constexpr glm::vec3 RIGHT = glm::vec3(1.0f, 0.0f, 0.0f);
@@ -475,7 +477,7 @@ void createRenderpass()
 
     //shadowmap pass
     renderpass::create_renderpass(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_SHADOWMAP], {
-        {VK_FORMAT_R32G32B32A32_SFLOAT, 0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, renderpass::ATTACHMENT_NONE},
+        {VK_FORMAT_R32G32B32A32_SFLOAT, 0, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL, renderpass::ATTACHMENT_NONE},
         {vulkanDepthFormat, 1, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, renderpass::ATTACHMENT_DEPTH},
     });
 
@@ -522,7 +524,7 @@ void createdescriptorset()
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_GBUFFER_NORM].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_GBUFFER_TEX].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_GBUFFER_ALBEDO].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_SHADOWMAP].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_SHADOWMAP].imageView, VK_IMAGE_LAYOUT_GENERAL}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 5, {uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].range}, {}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 6, {uniformbuffers[UNIFORM_INDEX_CAMERA].buf, 0, uniformbuffers[UNIFORM_INDEX_CAMERA].range}, {}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 7, {uniformbuffers[UNIFORM_INDEX_LIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT].range}, {}},
@@ -752,7 +754,7 @@ void createPipeline()
         };
 
         VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo = pipeline::getInputAssemblyCreateInfo();
-        VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo = pipeline::getRasterizationCreateInfo(VK_CULL_MODE_BACK_BIT);
+        VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo = pipeline::getRasterizationCreateInfo(VK_CULL_MODE_FRONT_BIT);
         VkPipelineColorBlendAttachmentState pipelinecolorblendattachment = pipeline::getColorBlendAttachment(VK_FALSE);
         std::vector<VkPipelineColorBlendAttachmentState> pipelinecolorblendattachments = { pipelinecolorblendattachment };
         VkPipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo = pipeline::getColorBlendCreateInfo(static_cast<uint32_t>(pipelinecolorblendattachments.size()), pipelinecolorblendattachments.data());
@@ -779,13 +781,20 @@ void createPipeline()
 
     //blur shadow pass
     {
-        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_SHADOWMAP_BLUR], vulkanPipelineLayouts[render::PIPELINE_SHADOWMAP_BLUR]);
+        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_SHADOWMAP_BLUR], vulkanPipelineLayouts[render::PIPELINE_SHADOWMAP_BLUR_VERTICAL]);
 
         VkComputePipelineCreateInfo pipelineCreateInfo{};
-        pipelineCreateInfo.layout = vulkanPipelineLayouts[render::PIPELINE_SHADOWMAP_BLUR];
+        pipelineCreateInfo.layout = vulkanPipelineLayouts[render::PIPELINE_SHADOWMAP_BLUR_VERTICAL];
 
-        pipeline::create_compute_pipeline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_SHADOWMAP_BLUR], vulkanPipelineCache, 
-            {"data/shaders/blurshadow.comp.spv", VK_SHADER_STAGE_COMPUTE_BIT});
+        pipeline::create_compute_pipeline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_SHADOWMAP_BLUR_VERTICAL], vulkanPipelineCache,
+            {"data/shaders/blurshadow_vertical.comp.spv", VK_SHADER_STAGE_COMPUTE_BIT});
+
+        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_SHADOWMAP_BLUR], vulkanPipelineLayouts[render::PIPELINE_SHADOWMAP_BLUR_HORIZONTAL]);
+
+        pipelineCreateInfo.layout = vulkanPipelineLayouts[render::PIPELINE_SHADOWMAP_BLUR_HORIZONTAL];
+
+        pipeline::create_compute_pipeline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_SHADOWMAP_BLUR_HORIZONTAL], vulkanPipelineCache,
+            { "data/shaders/blurshadow_horizontal.comp.spv", VK_SHADER_STAGE_COMPUTE_BIT });
     }
 }
 
@@ -793,9 +802,16 @@ void createcommandbuffer()
 {
     vulkanCommandBuffers.resize(swapchainImageCount + render::COMMANDBUFFER_SWAPCHAIN);
 
-    VkCommandBufferAllocateInfo commandBufferAllocateInfo = devicePtr->commandbuffer_allocateinfo(static_cast<uint32_t>(vulkanCommandBuffers.size()));
+    VkCommandBufferAllocateInfo commandBufferAllocateInfo = devicePtr->commandbuffer_allocateinfo(static_cast<uint32_t>(vulkanCommandBuffers.size()), false);
 
     if (vkAllocateCommandBuffers(devicePtr->vulkanDevice, &commandBufferAllocateInfo, vulkanCommandBuffers.data()) != VK_SUCCESS)
+    {
+        std::cout << "failed to allocate commandbuffers!" << std::endl;
+    }
+
+    commandBufferAllocateInfo = devicePtr->commandbuffer_allocateinfo(static_cast<uint32_t>(render::COMPUTECMDBUFFER_MAX), true);
+
+    if (vkAllocateCommandBuffers(devicePtr->vulkanDevice, &commandBufferAllocateInfo, vulkanComputeCommandBuffers.data()) != VK_SUCCESS)
     {
         std::cout << "failed to allocate commandbuffers!" << std::endl;
     }
@@ -961,6 +977,7 @@ void setupbuffer()
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R8G8B8A8_SNORM, windowPtr->windowWidth, windowPtr->windowHeight, imagebuffers[IMAGE_INDEX_GBUFFER_ALBEDO]);
 
     memPtr->create_fb_image(devicePtr->vulkanDevice, shadowmapFormat, shadowmapSize, shadowmapSize, imagebuffers[IMAGE_INDEX_SHADOWMAP]);
+    memPtr->transitionImage(devicePtr, vulkanGraphicsQueue, imagebuffers[IMAGE_INDEX_SHADOWMAP], VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
     memPtr->create_depth_image(devicePtr, vulkanGraphicsQueue, vulkanDepthFormat, shadowmapSize, shadowmapSize, imagebuffers[IMAGE_INDEX_SHADOWMAP_DEPTH]);
 
     {
@@ -1193,8 +1210,7 @@ void close()
         renderpass::close_renderpass(devicePtr->vulkanDevice, renderpass);
     }
 
-
-    devicePtr->free_command_buffer(static_cast<uint32_t>(vulkanCommandBuffers.size()), vulkanCommandBuffers.data());
+    devicePtr->free_command_buffer(static_cast<uint32_t>(vulkanCommandBuffers.size()), vulkanCommandBuffers.data(), static_cast<uint32_t>(vulkanComputeCommandBuffers.size()), vulkanComputeCommandBuffers.data());
 
     vkDestroySampler(devicePtr->vulkanDevice, vulkanSampler, VK_NULL_HANDLE);
     guiPtr->close(devicePtr->vulkanDevice);
@@ -1304,6 +1320,8 @@ int main(void)
 
             if (ImGui::BeginMenu("Setting"))
             {
+                ImGui::Checkbox("Blur Shadow", &blurshadow);
+
                 if (ImGui::BeginMenu("Deferred Target"))
                 {
                     bool deferred[5] = { false };
@@ -1381,11 +1399,9 @@ int main(void)
             }
             
             vkCmdResetQueryPool(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], vulkanTimestampQuery, 0, 2);
-
             vkCmdWriteTimestamp(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vulkanTimestampQuery, 0);
 
             vkCmdBeginRenderPass(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
             vkCmdBindPipeline(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelines[render::PIPELINE_GBUFFER]);
 
             std::array<uint32_t, 1> dynamicoffsets = { 0 };
@@ -1460,8 +1476,8 @@ int main(void)
             }
         }
 
+        //submit all commandbuffers
         {
-            std::array<VkSemaphore, 1> signalsemaphores = { vulkanSemaphores[render::SEMAPHORE_GBUFFER] };
             std::array<VkCommandBuffer, 2> submitcommandbuffers = { vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], vulkanCommandBuffers[render::COMMANDBUFFER_SHADOWMAP] };
 
             VkSubmitInfo submitInfo{};
@@ -1471,14 +1487,90 @@ int main(void)
             submitInfo.pWaitDstStageMask = &pipelinestageFlag;
             submitInfo.waitSemaphoreCount = 1;
             submitInfo.pWaitSemaphores = &vulkanSemaphores[render::SEMAPHORE_PRESENT];
-            submitInfo.signalSemaphoreCount = static_cast<uint32_t>(signalsemaphores.size());
-            submitInfo.pSignalSemaphores = signalsemaphores.data();
+            submitInfo.signalSemaphoreCount = 1;
+            submitInfo.pSignalSemaphores = (blurshadow) ? &vulkanSemaphores[render::SEMAPHORE_GBUFFER] : &vulkanSemaphores[render::SEMAPHORE_SHADOWMAP_BLUR_HORIZONTAL];
             submitInfo.commandBufferCount = static_cast<uint32_t>(submitcommandbuffers.size());
             submitInfo.pCommandBuffers = submitcommandbuffers.data();
             if (vkQueueSubmit(vulkanGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
             {
                 std::cout << "failed to submit queue" << std::endl;
                 return -1;
+            }
+        }
+
+        if (blurshadow)
+        {
+            {
+                VkCommandBufferBeginInfo commandBufferBeginInfo{};
+                commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+                if (vkBeginCommandBuffer(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_VERTICAL], &commandBufferBeginInfo) != VK_SUCCESS)
+                {
+                    std::cout << "failed to begin command buffer!" << std::endl;
+                    return -1;
+                }
+
+                vkCmdBindPipeline(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_VERTICAL], VK_PIPELINE_BIND_POINT_COMPUTE, vulkanPipelines[render::PIPELINE_SHADOWMAP_BLUR_VERTICAL]);
+                vkCmdBindDescriptorSets(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_VERTICAL], VK_PIPELINE_BIND_POINT_COMPUTE, vulkanPipelineLayouts[render::PIPELINE_SHADOWMAP_BLUR_VERTICAL], 0, 1,
+                    &vulkanDescriptorSets[render::DESCRIPTOR_SHADOWMAP_BLUR], 0, 0);
+
+                vkCmdDispatch(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_VERTICAL], shadowmapSize / 128, shadowmapSize, 1);
+
+                vkEndCommandBuffer(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_VERTICAL]);
+
+                VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+
+                // Submit compute commands
+                VkSubmitInfo submitInfo{};
+                submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+                submitInfo.commandBufferCount = 1;
+                submitInfo.pCommandBuffers = &vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_VERTICAL];
+                submitInfo.waitSemaphoreCount = 1;
+                submitInfo.pWaitSemaphores = &vulkanSemaphores[render::SEMAPHORE_GBUFFER];
+                submitInfo.pWaitDstStageMask = &waitStageMask;
+                submitInfo.signalSemaphoreCount = 1;
+                submitInfo.pSignalSemaphores = &vulkanSemaphores[render::SEMAPHORE_SHADOWMAP_BLUR_VERTICAL];
+                if (vkQueueSubmit(vulkanComputeQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
+                {
+                    std::cout << "failed to submit queue" << std::endl;
+                    return -1;
+                }
+            }
+            {
+                VkCommandBufferBeginInfo commandBufferBeginInfo{};
+                commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+                if (vkBeginCommandBuffer(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_HORIZONTAL], &commandBufferBeginInfo) != VK_SUCCESS)
+                {
+                    std::cout << "failed to begin command buffer!" << std::endl;
+                    return -1;
+                }
+
+                vkCmdBindPipeline(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_HORIZONTAL], VK_PIPELINE_BIND_POINT_COMPUTE, vulkanPipelines[render::PIPELINE_SHADOWMAP_BLUR_HORIZONTAL]);
+                vkCmdBindDescriptorSets(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_HORIZONTAL], VK_PIPELINE_BIND_POINT_COMPUTE, vulkanPipelineLayouts[render::PIPELINE_SHADOWMAP_BLUR_HORIZONTAL], 0, 1,
+                    &vulkanDescriptorSets[render::DESCRIPTOR_SHADOWMAP_BLUR], 0, 0);
+
+                vkCmdDispatch(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_HORIZONTAL], shadowmapSize, shadowmapSize / 128, 1);
+
+                vkEndCommandBuffer(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_HORIZONTAL]);
+
+                VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+
+                // Submit compute commands
+                VkSubmitInfo submitInfo{};
+                submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+                submitInfo.commandBufferCount = 1;
+                submitInfo.pCommandBuffers = &vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_HORIZONTAL];
+                submitInfo.waitSemaphoreCount = 1;
+                submitInfo.pWaitSemaphores = &vulkanSemaphores[render::SEMAPHORE_SHADOWMAP_BLUR_VERTICAL];
+                submitInfo.pWaitDstStageMask = &waitStageMask;
+                submitInfo.signalSemaphoreCount = 1;
+                submitInfo.pSignalSemaphores = &vulkanSemaphores[render::SEMAPHORE_SHADOWMAP_BLUR_HORIZONTAL];
+                if (vkQueueSubmit(vulkanComputeQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
+                {
+                    std::cout << "failed to submit queue" << std::endl;
+                    return -1;
+                }
             }
         }
 
@@ -1577,7 +1669,7 @@ int main(void)
 
             std::array<VkCommandBuffer, 1> submitcommandbuffers = { vulkanCommandBuffers[commandbufferindex] };
 
-            std::array<VkSemaphore, 1> waitsemaphores = { vulkanSemaphores[render::SEMAPHORE_GBUFFER] };
+            std::array<VkSemaphore, 1> waitsemaphores = { vulkanSemaphores[render::SEMAPHORE_SHADOWMAP_BLUR_HORIZONTAL] };
 
             VkSubmitInfo submitInfo{};
             submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;

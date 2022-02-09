@@ -46,6 +46,9 @@ public:
     bool create_depth_image(device* devicePtr, VkQueue graphicsqueue, VkFormat depthformat, uint32_t width, uint32_t height, Image& image);
     bool create_fb_image(VkDevice vulkandevice, VkFormat format, uint32_t width, uint32_t height, Image& image);
 
+    void transitionImage(device* devicePtr, VkQueue graphicsqueue, Image& image, VkImageAspectFlags aspectmask, VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
+        VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+
     void free_buffer(VkDevice device, Buffer& buf);
     void free_image(VkDevice device, Image& img);
 };

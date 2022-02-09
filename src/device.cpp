@@ -30,7 +30,7 @@ bool device::select_physical_device(VkInstance instance)
     return true;
 }
 
-bool device::create_logical_device(VkInstance instance, VkSurfaceKHR surface, Enable_FeatureFlags featureflags)
+bool device::create_logical_device(VkInstance /*instance*/, VkSurfaceKHR surface, Enable_FeatureFlags featureflags)
 {
     VkPhysicalDeviceFeatures enabledeviceFeatures{};
     //enable sample shading
@@ -137,6 +137,16 @@ bool device::create_command_pool()
         return false;
     }
 
+    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    poolInfo.queueFamilyIndex = computeFamily;
+    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+    if (vkCreateCommandPool(vulkanDevice, &poolInfo, VK_NULL_HANDLE, &vulkanComputeCommandPool) != VK_SUCCESS)
+    {
+        std::cout << "failed to create command pool!" << std::endl;
+        return false;
+    }
+
     return true;
 }
 
@@ -146,11 +156,11 @@ void device::request_queue(VkQueue& graphics, VkQueue& compute)
     vkGetDeviceQueue(vulkanDevice, computeFamily, 0, &compute);
 }
 
-VkCommandBufferAllocateInfo device::commandbuffer_allocateinfo(uint32_t count)
+VkCommandBufferAllocateInfo device::commandbuffer_allocateinfo(uint32_t count, bool compute)
 {
     VkCommandBufferAllocateInfo commandBufferAllocateInfo{};
     commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    commandBufferAllocateInfo.commandPool = vulkanCommandPool;
+    commandBufferAllocateInfo.commandPool = (compute) ? vulkanComputeCommandPool : vulkanCommandPool;
     commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     commandBufferAllocateInfo.commandBufferCount = count;
 
@@ -159,7 +169,7 @@ VkCommandBufferAllocateInfo device::commandbuffer_allocateinfo(uint32_t count)
 
 bool device::create_single_commandbuffer_begin(VkCommandBuffer& commandBuffer)
 {
-    VkCommandBufferAllocateInfo commandBufferAllocateInfo = commandbuffer_allocateinfo(1);
+    VkCommandBufferAllocateInfo commandBufferAllocateInfo = commandbuffer_allocateinfo(1, false);
 
     if (vkAllocateCommandBuffers(vulkanDevice, &commandBufferAllocateInfo, &commandBuffer) != VK_SUCCESS)
     {
@@ -222,17 +232,21 @@ bool device::end_commandbuffer_submit(VkQueue graphicsqueue, VkCommandBuffer com
 
     vkDestroyFence(vulkanDevice, fence, nullptr);
 
-    free_command_buffer(1, &commandbuffer);
+    free_command_buffer(1, &commandbuffer, 0, nullptr);
+
+    return true;
 }
 
-void device::free_command_buffer(uint32_t count, VkCommandBuffer* commandbuffer)
+void device::free_command_buffer(uint32_t count, VkCommandBuffer* commandbuffer, uint32_t computecount, VkCommandBuffer* computecommandbuffer)
 {
-    vkFreeCommandBuffers(vulkanDevice, vulkanCommandPool, count, commandbuffer);
+    if(count > 0) vkFreeCommandBuffers(vulkanDevice, vulkanCommandPool, count, commandbuffer);
+    if(computecount > 0) vkFreeCommandBuffers(vulkanDevice, vulkanComputeCommandPool, computecount, computecommandbuffer);
 }
 
 void device::close()
 {
     vkDestroyCommandPool(vulkanDevice, vulkanCommandPool, VK_NULL_HANDLE);
+    vkDestroyCommandPool(vulkanDevice, vulkanComputeCommandPool, VK_NULL_HANDLE);
 
     vkDestroyDevice(vulkanDevice, VK_NULL_HANDLE);
 }

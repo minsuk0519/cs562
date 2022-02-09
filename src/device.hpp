@@ -16,6 +16,7 @@ public:
 	VkPhysicalDevice vulkanPhysicalDevice = VK_NULL_HANDLE;
 	VkDevice vulkanDevice = VK_NULL_HANDLE;
 	VkCommandPool vulkanCommandPool = VK_NULL_HANDLE;
+	VkCommandPool vulkanComputeCommandPool = VK_NULL_HANDLE;
 
 	VkPhysicalDeviceProperties vulkandeviceProperties;
 	VkPhysicalDeviceFeatures vulkandeviceFeatures;
@@ -31,12 +32,12 @@ public:
 
 	void request_queue(VkQueue& graphics, VkQueue& compute);
 
-	VkCommandBufferAllocateInfo commandbuffer_allocateinfo(uint32_t count);
+	VkCommandBufferAllocateInfo commandbuffer_allocateinfo(uint32_t count, bool compute);
 	bool create_single_commandbuffer_begin(VkCommandBuffer& commandBuffer);
 
 	bool end_commandbuffer_submit(VkQueue graphicsqueue, VkCommandBuffer commandbuffer);
 
-	void free_command_buffer(uint32_t count, VkCommandBuffer* commandbuffer);
+	void free_command_buffer(uint32_t count, VkCommandBuffer* commandbuffer, uint32_t computecount, VkCommandBuffer* computecommandbuffer);
 
 	void close();
 };
