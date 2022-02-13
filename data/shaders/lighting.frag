@@ -1,6 +1,7 @@
 #version 430
 
 #include "include/light.glsl"
+#include "include/shadow.glsl"
 
 layout(location = 0) out vec4 outColor;
 
@@ -28,11 +29,10 @@ layout(binding = 7) uniform Sun
 	light sun;
 };
 
-layout(binding = 8) uniform LightProjection 
+layout(binding = 8) uniform shadowsetting 
 {
-	mat4 viewMat;
-	mat4 projMat;
-} lightProj;
+	shadowSetting shadow;
+};
 
 void main()
 {
@@ -64,13 +64,6 @@ void main()
 	
 	vec3 position = texture(posTex, outTexcoord).xyz;
 	
-	vec4 shadowPosition = lightProj.projMat * lightProj.viewMat * vec4(position, 1.0);
-	vec2 shadowmapCoord = shadowPosition.xy / shadowPosition.w;
-	shadowmapCoord = shadowmapCoord * 0.5 + vec2(0.5, 0.5);
-	float depth = texture(depthTex, shadowmapCoord).r;
-	if(depth > (shadowPosition.w - 0.001)) depth = 1.0;
-	else depth = 0.0;		
-	
 	vec3 normal = normalize(texture(normTex, outTexcoord).xyz);
 	vec4 texTexData = texture(texTex, outTexcoord);
 	vec2 texCoord = texTexData.xy;
@@ -88,7 +81,8 @@ void main()
 	vec3 lightDir = normalize(-sun.direction);
 	
 	resultColor += calcLight(lightDir, viewDir, normal, albedo, sun.color, roughness, metal, F0);
-	resultColor *= depth;
+	float shadow = calcShadow(shadow, position, depthTex);
+	resultColor *= (1.0 - shadow);
 	
     resultColor += vec3(0.1) * albedo;
 	

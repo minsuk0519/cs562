@@ -54,6 +54,24 @@ struct light
 	glm::vec3 color;
 };
 
+enum SHADOW_TYPE
+{
+	SHADOW_NONE = 0,
+	SHADOW_MSM = 1,
+};
+
+struct shadow
+{
+	Projection proj;
+
+	float depthBias = 0.00006f;
+	float shadowBias = 0.007f;
+
+	float far_plane = 100.0f;
+
+	int type = SHADOW_MSM;
+};
+
 enum UNIFORM_INDEX
 {
 	UNIFORM_INDEX_PROJECTION = 0,
@@ -61,7 +79,7 @@ enum UNIFORM_INDEX
 	UNIFORM_INDEX_LIGHT_SETTING,
 	UNIFORM_INDEX_CAMERA,
 	UNIFORM_INDEX_LIGHT,
-	UNIFORM_INDEX_LIGHT_PROJECTION,
+	UNIFORM_INDEX_SHADOW_SETTING,
 	UNIFORM_INDEX_MAX,
 };
 

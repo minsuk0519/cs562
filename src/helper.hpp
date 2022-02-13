@@ -50,6 +50,14 @@ namespace helper
             value = data;
             return this;
         }
+        T* operator&()
+        {
+            return &value;
+        }
+        T operator*()
+        {
+            return value;
+        }
     };
 }
 

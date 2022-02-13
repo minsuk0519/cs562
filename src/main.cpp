@@ -83,13 +83,14 @@ std::array<VkRenderPass, render::RENDERPASS_MAX> vulkanRenderpasses;
 
 //shadowmap
 constexpr uint32_t shadowmapSize = 2048;
-VkFormat shadowmapFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
+VkFormat shadowmapFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
 
 std::vector<object*> objects;
 glm::vec3 camerapos = glm::vec3(0.0f, 2.0f, 5.0f);
 glm::quat rotation = glm::quat(glm::vec3(glm::radians(0.0f), 0, 0));
 light sun;
 std::vector<light> local_light;
+shadow shadowsetting;
 
 lightSetting lightsetting;
 ObjectProperties objproperties;
@@ -477,7 +478,7 @@ void createRenderpass()
 
     //shadowmap pass
     renderpass::create_renderpass(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_SHADOWMAP], {
-        {VK_FORMAT_R32G32B32A32_SFLOAT, 0, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL, renderpass::ATTACHMENT_NONE},
+        {shadowmapFormat, 0, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL, renderpass::ATTACHMENT_NONE},
         {vulkanDepthFormat, 1, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, renderpass::ATTACHMENT_DEPTH},
     });
 
@@ -489,10 +490,10 @@ void createRenderpass()
 void createdescriptorset()
 {
     descriptor::create_descriptorpool(devicePtr->vulkanDevice, vulkanDescriptorPool, {
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 8 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 9 },
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 5 },
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 9 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2 },
         });
 
     //gbuffer pass
@@ -528,7 +529,7 @@ void createdescriptorset()
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 5, {uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].range}, {}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 6, {uniformbuffers[UNIFORM_INDEX_CAMERA].buf, 0, uniformbuffers[UNIFORM_INDEX_CAMERA].range}, {}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 7, {uniformbuffers[UNIFORM_INDEX_LIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT].range}, {}},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 8, {uniformbuffers[UNIFORM_INDEX_LIGHT_PROJECTION].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT_PROJECTION].range}, {}},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 8, {uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].range}, {}},
         });
 
     //local light pass
@@ -565,12 +566,12 @@ void createdescriptorset()
 
     //shadowmapping
     descriptor::create_descriptorset_layout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_SHADOWMAP], vulkanDescriptorSets[render::DESCRIPTOR_SHADOWMAP], vulkanDescriptorPool, {
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT, 1},
         });
 
     descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_SHADOWMAP], {
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, {uniformbuffers[UNIFORM_INDEX_LIGHT_PROJECTION].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT_PROJECTION].range}, {}},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, {uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].range}, {}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, {uniformbuffers[UNIFORM_INDEX_OBJECT].buf, 0, uniformbuffers[UNIFORM_INDEX_OBJECT].range}, {}},
         });
 
@@ -838,12 +839,10 @@ void updatebuffer()
     memcpy(data0, &proj, uniformbuffers[UNIFORM_INDEX_PROJECTION].size);
     vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_PROJECTION].memory);
 
-    proj.projMat = glm::perspective(glm::radians(90.0f), fov, 0.1f, 1000.0f);
-    proj.projMat[1][1] *= -1.0f;
-    
-    
+    shadowsetting.proj.projMat = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, shadowsetting.far_plane);
+    shadowsetting.proj.projMat[1][1] *= -1.0f;
 
-    glm::vec3 look = normalize(sun.direction);// rotation* FORWARD;
+    glm::vec3 look = normalize(sun.direction);// rotation * FORWARD;
 
     glm::vec3 U = (std::abs(dot(look, UP)) == 1) ? glm::cross(look, FORWARD) : glm::cross(look, UP);
     U = glm::cross(U, look);
@@ -854,13 +853,13 @@ void updatebuffer()
 
     glm::mat4 R = glm::mat4(glm::vec4(A, 0.0f), glm::vec4(B, 0.0f), glm::vec4(-V, 0.0f), glm::vec4(0, 0, 0, 1));
     R = glm::transpose(R);
-    glm::mat4 T = glm::translate(R, 10.0f * glm::vec3(sun.direction));
+    glm::mat4 T = glm::translate(R, -glm::vec3(sun.position));
 
-    proj.viewMat = T;
+    shadowsetting.proj.viewMat = T;
 
-    vkMapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_LIGHT_PROJECTION].memory, 0, uniformbuffers[UNIFORM_INDEX_PROJECTION].size, 0, &data0);
-    memcpy(data0, &proj, uniformbuffers[UNIFORM_INDEX_LIGHT_PROJECTION].size);
-    vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_LIGHT_PROJECTION].memory);
+    vkMapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].memory, 0, uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].size, 0, &data0);
+    memcpy(data0, &shadowsetting, uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].size);
+    vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].memory);
 
     static float a = 0.0f;
     //a += 0.001f;
@@ -957,10 +956,10 @@ void updatebuffer()
 
 void setupbuffer()
 {
-    sun.direction = glm::vec3(1.0f, -1.0f, 0.0);
+    sun.direction = glm::vec3(-1.0f, -1.0f, 0.0);
     sun.color = glm::vec3(10.0f, 10.0f, 10.0f);
 
-    sun.position = glm::vec3(0.0, 0.0f, 0.0f);
+    sun.position = glm::vec3(15.0, 15.0f, 0.0f);
     sun.radius = 10.1f;
 
     local_light.push_back(light{ glm::vec3(-4.0f, 6.0f, -10.0f), 10.0f, glm::vec3(0.0f, 0.0f, 0.0f), 0, glm::vec3(20.0f, 0.0f, 0.0f) });
@@ -1081,7 +1080,7 @@ void setupbuffer()
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(lightSetting), 1, uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING]);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(camera), 1, uniformbuffers[UNIFORM_INDEX_CAMERA]);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(light)*/64, 64, uniformbuffers[UNIFORM_INDEX_LIGHT]);
-    memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(Projection), 1, uniformbuffers[UNIFORM_INDEX_LIGHT_PROJECTION]);
+    memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(shadow), 1, uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING]);
 
     updatebuffer();
 }
@@ -1285,7 +1284,9 @@ int main(void)
                 if (ImGui::BeginMenu("SUN##Object"))
                 {
                     ImGui::DragFloat3("color##SUN", &sun.color.x);
+                    ImGui::DragFloat3("position##SUN", &sun.position.x, 0.005f);
                     ImGui::DragFloat3("direction##SUN", &sun.direction.x, 0.01f);
+                    ImGui::DragFloat("rad##SUN", &sun.radius, 0.0001f, 0.0f, 1.00f);
 
                     ImGui::EndMenu();
                 }
@@ -1326,7 +1327,30 @@ int main(void)
 
             if (ImGui::BeginMenu("Setting"))
             {
-                ImGui::Checkbox("Blur Shadow", &blurshadow.value);
+                ImGui::Checkbox("Blur Shadow", &blurshadow);
+
+                ImGui::DragFloat("Depth Bias", &shadowsetting.depthBias, 0.00001f, 0.0f, 0.1f, "%.5f");
+                ImGui::DragFloat("Shadow Bias", &shadowsetting.shadowBias, 0.00001f, 0.0f, 0.1f, "%.5f");
+                ImGui::DragFloat("Shadow Far_plane", &shadowsetting.far_plane, 1.0f, 0.0f, 100.0f);
+
+                const char* items[] = { "None", "Monument Shader Mapping"};
+
+                if (ImGui::BeginCombo("Shadow Type", items[shadowsetting.type]))
+                {
+                    for (int n = 0; n < IM_ARRAYSIZE(items); n++)
+                    {
+                        bool is_selected = (shadowsetting.type == n);
+                        if (ImGui::Selectable(items[n], is_selected))
+                        {
+                            shadowsetting.type = n;
+                            if (is_selected)
+                            {
+                                ImGui::SetItemDefaultFocus();
+                            }
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
 
                 if (ImGui::BeginMenu("Deferred Target"))
                 {
@@ -1517,7 +1541,7 @@ int main(void)
                     {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 5, {uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].range}, {}},
                     {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 6, {uniformbuffers[UNIFORM_INDEX_CAMERA].buf, 0, uniformbuffers[UNIFORM_INDEX_CAMERA].range}, {}},
                     {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 7, {uniformbuffers[UNIFORM_INDEX_LIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT].range}, {}},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 8, {uniformbuffers[UNIFORM_INDEX_LIGHT_PROJECTION].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT_PROJECTION].range}, {}},
+                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 8, {uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].range}, {}},
                     });
             }
             else
@@ -1531,7 +1555,7 @@ int main(void)
                     {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 5, {uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].range}, {}},
                     {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 6, {uniformbuffers[UNIFORM_INDEX_CAMERA].buf, 0, uniformbuffers[UNIFORM_INDEX_CAMERA].range}, {}},
                     {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 7, {uniformbuffers[UNIFORM_INDEX_LIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT].range}, {}},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 8, {uniformbuffers[UNIFORM_INDEX_LIGHT_PROJECTION].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT_PROJECTION].range}, {}},
+                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 8, {uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].range}, {}},
                     });
             }
         }

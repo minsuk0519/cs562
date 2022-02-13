@@ -4,8 +4,8 @@ layout (local_size_x = 1, local_size_y = 128, local_size_z = 1) in;
 layout (binding = 0, rgba32f) uniform readonly image2D blurTarget;
 layout (binding = 1, rgba32f) uniform writeonly image2D blurOutput;
 
-const int w = 3;
-const float e = 2.718;
+const int w = 9;
+const float e = 2.718281828459045;
 
 shared vec4 v[128 + 2 * w + 1];
 

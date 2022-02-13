@@ -1,10 +1,11 @@
 #version 430
 
-layout(binding = 0) uniform Projection 
+#include "include/shadow.glsl"
+
+layout(binding = 0) uniform shadowsetting 
 {
-	mat4 viewMat;
-	mat4 projMat;
-} proj;
+	shadowSetting shadow;
+};
 
 layout(binding = 1) uniform Object
 {
@@ -20,6 +21,6 @@ layout(location = 0) out vec4 outPosition;
 
 void main()
 {	
-    gl_Position = proj.projMat * proj.viewMat * obj.modelMat * vec4(inPosition, 1.0);
+    gl_Position = shadow.projMat * shadow.viewMat * obj.modelMat * vec4(inPosition, 1.0);
 	outPosition = gl_Position;
 }

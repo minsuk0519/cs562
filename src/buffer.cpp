@@ -237,6 +237,7 @@ bool memory::create_fb_image(VkDevice vulkandevice, VkFormat format, uint32_t wi
     imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     imageCreateInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+
     if (vkCreateImage(vulkandevice, &imageCreateInfo, nullptr, &image.image))
     {
         std::cout << "failed to create image!" << std::endl;
