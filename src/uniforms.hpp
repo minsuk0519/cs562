@@ -25,6 +25,9 @@ enum outputMode
 	NORMAL = 2,
 	TEXTURECOORDINATE = 3,
 	ALBEDO = 4,
+	SHADOW_MAP = 5,
+	ONLY_SHADOW = 6,
+	OUTPUTMODE_MAX,
 };
 
 struct lightSetting
@@ -58,14 +61,15 @@ enum SHADOW_TYPE
 {
 	SHADOW_NONE = 0,
 	SHADOW_MSM = 1,
+	SHADOW_NOSHADOW = 2,
 };
 
 struct shadow
 {
 	Projection proj;
 
-	float depthBias = 0.00006f;
-	float shadowBias = 0.007f;
+	float depthBias = 0.0f;
+	float shadowBias = 0.0005f;
 
 	float far_plane = 100.0f;
 

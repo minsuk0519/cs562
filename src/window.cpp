@@ -95,6 +95,8 @@ void callback::keyboard_callback(GLFWwindow* glfwwindow, int key, int /*scancode
 {
     window* windowPtr = static_cast<window*>(glfwGetWindowUserPointer(glfwwindow));
 
+    if (windowPtr->pressed.size() < key) return;
+
     if (action == GLFW_PRESS)
     {
         windowPtr->pressed[key] = true;
@@ -109,6 +111,8 @@ void callback::keyboard_callback(GLFWwindow* glfwwindow, int key, int /*scancode
 void callback::mousebutton_callback(GLFWwindow* glfwwindow, int button, int action, int /*mods*/)
 {
     window* windowPtr = static_cast<window*>(glfwGetWindowUserPointer(glfwwindow));
+    
+    if (windowPtr->pressed.size() < button) return;
 
     if (action == GLFW_PRESS)
     {

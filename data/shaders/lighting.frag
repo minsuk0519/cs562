@@ -36,11 +36,6 @@ layout(binding = 8) uniform shadowsetting
 
 void main()
 {
-	if(length(texture(normTex, outTexcoord).xyz) < 0.1)
-	{
-		discard;
-	}
-
 	if(setting.outputTex == 1)
 	{
 		outColor = (texture(posTex, outTexcoord) + vec4(2,1,6,0)) / 2;
@@ -60,6 +55,24 @@ void main()
 	{
 		outColor = texture(albedoTex, outTexcoord);
 		return;
+	}
+	else if(setting.outputTex == 5)
+	{
+		outColor = texture(depthTex, outTexcoord);
+		
+		return;
+	}
+	else if(setting.outputTex == 6)
+	{
+		vec3 position = texture(posTex, outTexcoord).xyz;
+		float shadow = calcShadow(shadow, position, depthTex);
+		outColor = vec4(1 - shadow, 1 - shadow, 1 - shadow, 1.0);
+		return;
+	}
+	
+	if(length(texture(normTex, outTexcoord).xyz) < 0.1)
+	{
+		discard;
 	}
 	
 	vec3 position = texture(posTex, outTexcoord).xyz;

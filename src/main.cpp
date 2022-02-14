@@ -84,6 +84,7 @@ std::array<VkRenderPass, render::RENDERPASS_MAX> vulkanRenderpasses;
 //shadowmap
 constexpr uint32_t shadowmapSize = 2048;
 VkFormat shadowmapFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+//VkFormat shadowmapFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
 
 std::vector<object*> objects;
 glm::vec3 camerapos = glm::vec3(0.0f, 2.0f, 5.0f);
@@ -757,7 +758,7 @@ void createPipeline()
         };
 
         VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo = pipeline::getInputAssemblyCreateInfo();
-        VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo = pipeline::getRasterizationCreateInfo(VK_CULL_MODE_FRONT_BIT);
+        VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo = pipeline::getRasterizationCreateInfo(VK_CULL_MODE_BACK_BIT);
         VkPipelineColorBlendAttachmentState pipelinecolorblendattachment = pipeline::getColorBlendAttachment(VK_FALSE);
         std::vector<VkPipelineColorBlendAttachmentState> pipelinecolorblendattachments = { pipelinecolorblendattachment };
         VkPipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo = pipeline::getColorBlendCreateInfo(static_cast<uint32_t>(pipelinecolorblendattachments.size()), pipelinecolorblendattachments.data());
@@ -957,9 +958,9 @@ void updatebuffer()
 void setupbuffer()
 {
     sun.direction = glm::vec3(-1.0f, -1.0f, 0.0);
-    sun.color = glm::vec3(10.0f, 10.0f, 10.0f);
+    sun.color = glm::vec3(8.0f, 8.0f, 10.0f);
 
-    sun.position = glm::vec3(15.0, 15.0f, 0.0f);
+    sun.position = glm::vec3(15.0, 15.0f, -5.0f);
     sun.radius = 10.1f;
 
     local_light.push_back(light{ glm::vec3(-4.0f, 6.0f, -10.0f), 10.0f, glm::vec3(0.0f, 0.0f, 0.0f), 0, glm::vec3(20.0f, 0.0f, 0.0f) });
@@ -1134,21 +1135,27 @@ void update(float dt)
     glm::vec3 look = rotation * FORWARD;
     glm::vec3 right = rotation * RIGHT;
 
+    float cam_speed = 5.0f;
+    if (windowPtr->pressed[GLFW_KEY_LEFT_SHIFT])
+    {
+        cam_speed *= 3.0f;
+    }
+
     if (windowPtr->pressed[GLFW_KEY_W])
     {
-        camerapos += look * 5.0f * dt;
+        camerapos += look * cam_speed * dt;
     }
     if (windowPtr->pressed[GLFW_KEY_S])
     {
-        camerapos -= look * 5.0f * dt;
+        camerapos -= look * cam_speed * dt;
     }
     if (windowPtr->pressed[GLFW_KEY_A])
     {
-        camerapos -= right * 5.0f * dt;
+        camerapos -= right * cam_speed * dt;
     }
     if (windowPtr->pressed[GLFW_KEY_D])
     {
-        camerapos += right * 5.0f * dt;
+        camerapos += right * cam_speed * dt;
     }
 
     static float pitch = 0.0f;
@@ -1333,7 +1340,7 @@ int main(void)
                 ImGui::DragFloat("Shadow Bias", &shadowsetting.shadowBias, 0.00001f, 0.0f, 0.1f, "%.5f");
                 ImGui::DragFloat("Shadow Far_plane", &shadowsetting.far_plane, 1.0f, 0.0f, 100.0f);
 
-                const char* items[] = { "None", "Monument Shader Mapping"};
+                const char* items[] = { "None", "Monument Shader Mapping", "No Shadow"};
 
                 if (ImGui::BeginCombo("Shadow Type", items[shadowsetting.type]))
                 {
@@ -1354,7 +1361,7 @@ int main(void)
 
                 if (ImGui::BeginMenu("Deferred Target"))
                 {
-                    bool deferred[5] = { false };
+                    bool deferred[outputMode::OUTPUTMODE_MAX] = { false };
                     deferred[lightsetting.outputTex] = true;
 
                     if (ImGui::MenuItem("Position##Target", "", deferred[outputMode::POSITION])) lightsetting.outputTex = outputMode::POSITION;
@@ -1362,6 +1369,8 @@ int main(void)
                     else if (ImGui::MenuItem("TextureCoordinate##Target", "", deferred[outputMode::TEXTURECOORDINATE])) lightsetting.outputTex = outputMode::TEXTURECOORDINATE;
                     else if (ImGui::MenuItem("ObjectColor##Target", "", deferred[outputMode::ALBEDO])) lightsetting.outputTex = outputMode::ALBEDO;
                     else if (ImGui::MenuItem("Lighting##Target", "", deferred[outputMode::LIGHTING])) lightsetting.outputTex = outputMode::LIGHTING;
+                    else if (ImGui::MenuItem("Shadow Map##Target", "", deferred[outputMode::SHADOW_MAP])) lightsetting.outputTex = outputMode::SHADOW_MAP;
+                    else if (ImGui::MenuItem("Only Shadow##Target", "", deferred[outputMode::ONLY_SHADOW])) lightsetting.outputTex = outputMode::ONLY_SHADOW;
 
                     ImGui::EndMenu();
                 }
@@ -1462,7 +1471,7 @@ int main(void)
             commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
             std::array<VkClearValue, 2> shadowmapclearValues;
-            shadowmapclearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+            shadowmapclearValues[0].color = { { 0.99998f, 0.99756f, 0.89343f, 0.0f } };
             shadowmapclearValues[1].depthStencil = { 1.0f, 0 };
 
             VkRenderPassBeginInfo renderPassBeginInfo{};
