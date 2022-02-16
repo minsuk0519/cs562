@@ -34,11 +34,10 @@ VkSwapchainKHR vulkanSwapchain = VK_NULL_HANDLE;
 VkQueryPool vulkanTimestampQuery;
 VkQueryPool vulkanPipelineStatisticsQuery;
 
-const uint32_t timestampQueryCount = 4;
+const uint32_t timestampQueryCount = TIMESTAMP::TIMESTAMP_MAX;
 const uint32_t pipelinestatisticsQueryCount = 9;
 
-uint64_t gbufferpasstime;
-uint64_t lightingpasstime;
+std::array<float, TIMESTAMP::TIMESTAMP_MAX / 2> pipeline_timestamps;
 
 VkQueue vulkanGraphicsQueue = VK_NULL_HANDLE;
 VkQueue vulkanComputeQueue = VK_NULL_HANDLE;
@@ -89,6 +88,7 @@ VkFormat shadowmapFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
 std::vector<object*> objects;
 glm::vec3 camerapos = glm::vec3(0.0f, 2.0f, 5.0f);
 glm::quat rotation = glm::quat(glm::vec3(glm::radians(0.0f), 0, 0));
+
 light sun;
 std::vector<light> local_light;
 shadow shadowsetting;
@@ -957,10 +957,10 @@ void updatebuffer()
 
 void setupbuffer()
 {
-    sun.direction = glm::vec3(-1.0f, -1.0f, 0.0);
+    sun.direction = glm::vec3(-3.0f, -2.0f, 0.0);
     sun.color = glm::vec3(8.0f, 8.0f, 10.0f);
 
-    sun.position = glm::vec3(15.0, 15.0f, -5.0f);
+    sun.position = glm::vec3(15.0, 10.0f, -5.0f);
     sun.radius = 10.1f;
 
     local_light.push_back(light{ glm::vec3(-4.0f, 6.0f, -10.0f), 10.0f, glm::vec3(0.0f, 0.0f, 0.0f), 0, glm::vec3(20.0f, 0.0f, 0.0f) });
@@ -1134,6 +1134,13 @@ void update(float dt)
 {
     glm::vec3 look = rotation * FORWARD;
     glm::vec3 right = rotation * RIGHT;
+
+    if (windowPtr->triggered[GLFW_KEY_C])
+    {
+        std::cout << "Camera status captured!" << std::endl;
+        std::cout << "position : " << camerapos << std::endl;
+        std::cout << "rotation : " << glm::eulerAngles(rotation) << std::endl;
+    }
 
     float cam_speed = 5.0f;
     if (windowPtr->pressed[GLFW_KEY_LEFT_SHIFT])
@@ -1323,8 +1330,9 @@ int main(void)
             {
                 if (ImGui::BeginMenu("Performance"))
                 {
-                    ImGui::Text("Gbuffer pass : %fms", gbufferpasstime / 1000000.0f);
-                    ImGui::Text("Lighting pass : %fms", lightingpasstime / 1000000.0f);
+                    ImGui::Text("Gbuffer pass : %fms", pipeline_timestamps[TIMESTAMP::TIMESTAMP_GBUFFER_START / 2]);
+                    ImGui::Text("Blur pass : %fms", pipeline_timestamps[TIMESTAMP::TIMESTAMP_BLUR_VERTICAL_START / 2] + pipeline_timestamps[TIMESTAMP::TIMESTAMP_BLUR_VERTICAL_END / 2]);
+                    ImGui::Text("Lighting pass : %fms", pipeline_timestamps[TIMESTAMP::TIMESTAMP_LIGHTING_START / 2]);
 
                     ImGui::EndMenu();
                 }
@@ -1437,8 +1445,8 @@ int main(void)
                 return -1;
             }
             
-            vkCmdResetQueryPool(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], vulkanTimestampQuery, 0, 2);
-            vkCmdWriteTimestamp(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vulkanTimestampQuery, 0);
+            vkCmdResetQueryPool(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_START, 2);
+            vkCmdWriteTimestamp(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_START);
 
             vkCmdBeginRenderPass(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
             vkCmdBindPipeline(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelines[render::PIPELINE_GBUFFER]);
@@ -1456,7 +1464,7 @@ int main(void)
 
             vkCmdEndRenderPass(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER]);
 
-            vkCmdWriteTimestamp(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vulkanTimestampQuery, 1);
+            vkCmdWriteTimestamp(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_END);
 
             if (vkEndCommandBuffer(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER]) != VK_SUCCESS)
             {
@@ -1471,7 +1479,8 @@ int main(void)
             commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
             std::array<VkClearValue, 2> shadowmapclearValues;
-            shadowmapclearValues[0].color = { { 0.99998f, 0.99756f, 0.89343f, 0.0f } };
+            //shadowmapclearValues[0].color = { { 0.999999989201f, 0.9975599302f, 0.8934375093f, 0.0000000003f } };
+            shadowmapclearValues[0].color = { { 1.0f, 1.0f, 1.0f, 1.0f } };
             shadowmapclearValues[1].depthStencil = { 1.0f, 0 };
 
             VkRenderPassBeginInfo renderPassBeginInfo{};
@@ -1586,11 +1595,17 @@ int main(void)
                     return -1;
                 }
 
+                // Reset timestamp query pool
+                vkCmdResetQueryPool(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_VERTICAL], vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_BLUR_VERTICAL_START, 2);
+                vkCmdWriteTimestamp(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_VERTICAL], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_BLUR_VERTICAL_START);
+
                 vkCmdBindPipeline(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_VERTICAL], VK_PIPELINE_BIND_POINT_COMPUTE, vulkanPipelines[render::PIPELINE_SHADOWMAP_BLUR_VERTICAL]);
                 vkCmdBindDescriptorSets(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_VERTICAL], VK_PIPELINE_BIND_POINT_COMPUTE, vulkanPipelineLayouts[render::PIPELINE_SHADOWMAP_BLUR_VERTICAL], 0, 1,
                     &vulkanDescriptorSets[render::DESCRIPTOR_SHADOWMAP_BLUR], 0, 0);
 
                 vkCmdDispatch(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_VERTICAL], shadowmapSize / 128, shadowmapSize, 1);
+
+                vkCmdWriteTimestamp(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_VERTICAL], VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_BLUR_VERTICAL_END);
 
                 vkEndCommandBuffer(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_VERTICAL]);
 
@@ -1630,11 +1645,17 @@ int main(void)
                     return -1;
                 }
 
+                // Reset timestamp query pool
+                vkCmdResetQueryPool(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_HORIZONTAL], vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_BLUR_HORIZONTAL_START, 2);
+                vkCmdWriteTimestamp(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_HORIZONTAL], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_BLUR_HORIZONTAL_START);
+
                 vkCmdBindPipeline(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_HORIZONTAL], VK_PIPELINE_BIND_POINT_COMPUTE, vulkanPipelines[render::PIPELINE_SHADOWMAP_BLUR_HORIZONTAL]);
                 vkCmdBindDescriptorSets(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_HORIZONTAL], VK_PIPELINE_BIND_POINT_COMPUTE, vulkanPipelineLayouts[render::PIPELINE_SHADOWMAP_BLUR_HORIZONTAL], 0, 1,
                     &vulkanDescriptorSets[render::DESCRIPTOR_SHADOWMAP_BLUR], 0, 0);
 
                 vkCmdDispatch(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_HORIZONTAL], shadowmapSize, shadowmapSize / 128, 1);
+
+                vkCmdWriteTimestamp(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_HORIZONTAL], VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_BLUR_HORIZONTAL_END);
 
                 vkEndCommandBuffer(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_BLUR_HORIZONTAL]);
 
@@ -1685,8 +1706,8 @@ int main(void)
             }
 
             // Reset timestamp query pool
-            vkCmdResetQueryPool(vulkanCommandBuffers[commandbufferindex], vulkanTimestampQuery, 2, 2);
-            vkCmdWriteTimestamp(vulkanCommandBuffers[commandbufferindex], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vulkanTimestampQuery, 2);
+            vkCmdResetQueryPool(vulkanCommandBuffers[commandbufferindex], vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_LIGHTING_START, 2);
+            vkCmdWriteTimestamp(vulkanCommandBuffers[commandbufferindex], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_LIGHTING_START);
 
             vkCmdResetQueryPool(vulkanCommandBuffers[commandbufferindex], vulkanPipelineStatisticsQuery, 0, pipelinestatisticsQueryCount);
             vkCmdBeginQuery(vulkanCommandBuffers[commandbufferindex], vulkanPipelineStatisticsQuery, 0, 0);
@@ -1743,7 +1764,7 @@ int main(void)
             vkCmdEndRenderPass(vulkanCommandBuffers[commandbufferindex]);
 
             vkCmdEndQuery(vulkanCommandBuffers[commandbufferindex], vulkanPipelineStatisticsQuery, 0);
-            vkCmdWriteTimestamp(vulkanCommandBuffers[commandbufferindex], VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vulkanTimestampQuery, 3);
+            vkCmdWriteTimestamp(vulkanCommandBuffers[commandbufferindex], VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_LIGHTING_END);
 
             if (vkEndCommandBuffer(vulkanCommandBuffers[commandbufferindex]) != VK_SUCCESS)
             {
@@ -1800,8 +1821,10 @@ int main(void)
         std::array<uint64_t, timestampQueryCount + 1> timequeryresult;
         vkGetQueryPoolResults(devicePtr->vulkanDevice, vulkanTimestampQuery, 0, timestampQueryCount, (timestampQueryCount + 1) * sizeof(uint64_t), timequeryresult.data(), sizeof(uint64_t), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
 
-        gbufferpasstime = timequeryresult[1] - timequeryresult[0];
-        lightingpasstime = timequeryresult[3] - timequeryresult[2];
+        for (int i = 0; i < timestampQueryCount / 2; ++i)
+        {
+            pipeline_timestamps[i] = (timequeryresult[i * 2 + 1] - timequeryresult[i * 2]) / 1000000.0f;
+        }
     }
 
     close();

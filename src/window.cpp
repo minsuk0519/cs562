@@ -54,6 +54,8 @@ bool window::create_surface(VkInstance instance, VkSurfaceKHR& surface)
 
 bool window::update_window_frame()
 {
+    triggered.reset();
+
     glfwPollEvents();
     glfwSwapBuffers(glfwWindow);
 
@@ -80,8 +82,6 @@ bool window::update_window_frame()
 
     prex = currentx;
     prey = currenty;
-
-    triggered.reset();
 
     return (!glfwWindowShouldClose(glfwWindow) && !shouldclose);
 }

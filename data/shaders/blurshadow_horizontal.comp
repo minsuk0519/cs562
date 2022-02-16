@@ -1,3 +1,38 @@
+//#version 460
+//layout (local_size_x = 1, local_size_y = 128, local_size_z = 1) in;
+//layout (binding = 0, rgba32f) uniform image2D blurTarget;
+//layout (binding = 1, rgba32f) uniform writeonly image2D blurOutput;
+//
+//const int w = 51;
+//const float e = 2.718281828459045;
+//void main()
+//{
+//	vec4 rgba = vec4(0,0,0,0);
+//	int start = -w;
+//	int end = w;
+//	int length = 2 * w + 1;
+//	
+//	float weight[2 * w + 1];
+//	float sumWeight = 0;
+//	
+//	for(int i = start; i <= end; ++i)
+//	{
+//		weight[i + w] = pow(e, -(2 * i * i) / (w * w));
+//		sumWeight += weight[i + w];
+//	}
+//	for(int i = start; i <= end; ++i)
+//	{
+//		weight[i + w] /= sumWeight;
+//	}
+//	for (int i=start; i <= end; ++i) 
+//	{   
+//		vec4 data = imageLoad(blurTarget, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y + i));
+//		rgba += data * weight[i + w];
+//	}
+//		
+//	imageStore(blurOutput, ivec2(gl_GlobalInvocationID.xy), rgba);
+//}
+
 #version 460
 
 layout (local_size_x = 1, local_size_y = 128, local_size_z = 1) in;

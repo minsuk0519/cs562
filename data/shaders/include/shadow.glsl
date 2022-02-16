@@ -139,7 +139,7 @@ float calcShadow(shadowSetting shadow, vec3 position, sampler2D depthTex)
 		}
 	}
 	
-	//result *= 3.0f;
+	result *= 3.0f;
 	result = clamp(result, 0.0, 1.0);
 	
 	return result;
