@@ -7,31 +7,67 @@ struct light
 	vec3 color;
 };
 
+struct hammersley
+{
+	int num;
+	vec2 pos[100];
+};
+
 const float PI = 3.14159265358979;
 
-float calNormalDistribution(float NdotH, float a)
+float calNormalDistribution(float NdotH, float roughness)
 {	
-	float asquare = a * a;
+	float asquare = roughness * roughness;
 	float value = NdotH * NdotH * (asquare - 1.0) + 1.0;
 	value = value * value * PI;
 	
-	return asquare * asquare / value;
+	return asquare / value;
+}
+
+float calGeometry_GGX(float VdotN, float roughness)
+{
+	float value = 2.0 * VdotN;
+	float VdotNsquare = VdotN * VdotN;
+	float roughnesssquare = roughness * roughness;
+	float denom = VdotN + sqrt(roughnesssquare + VdotNsquare * (1 - roughnesssquare));
+	
+	return value / denom;
 }
 
 float calGeometry(float NdotV, float NdotL, float roughness)
 {
-	float alphaplusone = (roughness + 1.0);
-    float k = (alphaplusone * alphaplusone) / 8.0;
+	//float alphaplusone = (roughness + 1.0);
+    //float k = (alphaplusone * alphaplusone) / 8.0;
 
-    float viewG = NdotV / (NdotV * (1.0 - k) + k);
-    float lightG = NdotL / (NdotL * (1.0 - k) + k);
+    //float viewG = NdotV / (NdotV * (1.0 - k) + k);
+    //float lightG = NdotL / (NdotL * (1.0 - k) + k);
 
-    return viewG * lightG;
+	float viewG = calGeometry_GGX(NdotV, roughness);
+	float lightG = calGeometry_GGX(NdotL, roughness);
+
+	return viewG * lightG;
 }
 
 vec3 calFresnel(float cosine, vec3 F0)
 {
 	return F0 + (1.0 - F0) * pow(1.0 - cosine, 5.0);
+}
+
+vec2 SphericalToEquirectangular(vec3 v)
+{
+	vec2 uv = vec2(0.5 - atan(v.x, v.z) / (2 * PI), acos(v.y) / PI);
+
+	return uv;
+}
+
+vec3 EquirectangularToSpherical(vec2 uv)
+{
+	vec3 v;
+	v.x = cos(2 * PI * (0.5 - uv.x)) * sin(PI * uv.y);
+	v.y = sin(2 * PI * (0.5 - uv.x)) * sin(PI * uv.y);
+	v.z = cos(PI * uv.y);
+	
+	return v;
 }
 
 vec3 calcLight(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 albedo, vec3 lightColor, float roughness, float metal, vec3 F0)
@@ -60,3 +96,4 @@ vec3 calcLight(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 albedo, vec3 light
 
 	return (kD * albedo / PI + specular) * NdotL * lightColor;// * radiance;
 }
+

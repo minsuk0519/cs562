@@ -76,6 +76,37 @@ struct shadow
 	int type = SHADOW_MSM;
 };
 
+struct HammersleyBlock
+{
+	int N;
+	std::vector<glm::vec2> hammersley;
+	HammersleyBlock()
+	{
+		hammersley.clear();
+	}
+	void build(int n)
+	{
+		if (!hammersley.empty())
+		{
+			if (n == N) return;
+			hammersley.clear();
+		}
+		N = n;
+
+		for (int k = 0; k < n; ++k)
+		{
+			int kk = k;
+			float u = 0.0f;
+			for (float p = 0.5f; kk; p *= 0.5f, kk >>= 1)
+			{
+				if (kk & 1) u += p;
+			}
+			float v = (k + 0.5f) / n;
+			hammersley.push_back(glm::vec2(u, v));
+		}
+	}
+};
+
 enum UNIFORM_INDEX
 {
 	UNIFORM_INDEX_PROJECTION = 0,
@@ -84,6 +115,9 @@ enum UNIFORM_INDEX
 	UNIFORM_INDEX_CAMERA,
 	UNIFORM_INDEX_LIGHT,
 	UNIFORM_INDEX_SHADOW_SETTING,
+	UNIFORM_INDEX_SKYDOME,
+	UNIFORM_INDEX_SKYDOME_IRRADIANCE,
+	UNIFORM_INDEX_HAMMERSLEYBLOCK,
 	UNIFORM_INDEX_MAX,
 };
 
@@ -110,7 +144,16 @@ enum IMAGE_INDEX
 	IMAGE_INDEX_SHADOWMAP,
 	IMAGE_INDEX_SHADOWMAP_BLUR,
 	IMAGE_INDEX_SHADOWMAP_DEPTH,
+	IMAGE_INDEX_SKYDOME,
+	IMAGE_INDEX_SKYDOME_IRRADIANCE,
 	IMAGE_INDEX_MAX,
+};
+
+enum SAMPLE_INDEX
+{
+	SAMPLE_INDEX_NORMAL = 0,
+	SAMPLE_INDEX_SKYDOME,
+	SAMPLE_INDEX_MAX,
 };
 
 enum TIMESTAMP

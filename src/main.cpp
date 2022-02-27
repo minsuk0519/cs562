@@ -43,7 +43,7 @@ VkQueue vulkanGraphicsQueue = VK_NULL_HANDLE;
 VkQueue vulkanComputeQueue = VK_NULL_HANDLE;
 VkPipelineCache vulkanPipelineCache = VK_NULL_HANDLE;
 
-VkSampler vulkanSampler = VK_NULL_HANDLE;
+std::array<VkSampler, SAMPLE_INDEX_MAX> vulkanSamplers;
 
 //formats
 VkFormat vulkanColorFormat;
@@ -59,7 +59,7 @@ gui* guiPtr = new gui();
 std::array<Buffer, UNIFORM_INDEX_MAX> uniformbuffers;
 std::array<VertexBuffer, VERTEX_INDEX_MAX> vertexbuffers;
 
-std::array<Image, IMAGE_INDEX_MAX> imagebuffers;
+std::array<Image*, IMAGE_INDEX_MAX> imagebuffers;
 
 //draw swapchain
 std::vector<Image> swapchainImages;
@@ -83,7 +83,6 @@ std::array<VkRenderPass, render::RENDERPASS_MAX> vulkanRenderpasses;
 //shadowmap
 constexpr uint32_t shadowmapSize = 2048;
 VkFormat shadowmapFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
-//VkFormat shadowmapFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
 
 std::vector<object*> objects;
 glm::vec3 camerapos = glm::vec3(0.0f, 2.0f, 5.0f);
@@ -99,6 +98,9 @@ ObjectProperties objproperties;
 bool lightspacetoggle = false;
 bool nolocallight = false;
 helper::changeData<bool> blurshadow = true;
+
+HammersleyBlock hammersley;
+helper::changeData<int> hammersley_N = 30;
 
 //constant value
 constexpr glm::vec3 RIGHT = glm::vec3(1.0f, 0.0f, 0.0f);
@@ -331,6 +333,8 @@ void createswapchain()
             std::cout << "failed to create iamgeview for swapchain!" << std::endl;
         }
     }
+
+    memPtr->create_sampler(devicePtr, vulkanSamplers[SAMPLE_INDEX_NORMAL], 1);
 }
 
 void createDepth()
@@ -356,26 +360,6 @@ void createDepth()
     }
 
     memPtr->create_depth_image(devicePtr, vulkanGraphicsQueue, vulkanDepthFormat, windowPtr->windowWidth, windowPtr->windowHeight, imagebuffers[IMAGE_INDEX_DEPTH]);
-
-    VkSamplerCreateInfo samplerCreateInfo{};
-    samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerCreateInfo.maxAnisotropy = 1.0f;    
-    samplerCreateInfo.magFilter = VK_FILTER_NEAREST;
-    samplerCreateInfo.minFilter = VK_FILTER_NEAREST;
-    samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerCreateInfo.mipLodBias = 0.0f;
-    samplerCreateInfo.maxAnisotropy = 1.0f;
-    samplerCreateInfo.minLod = 0.0f;
-    samplerCreateInfo.maxLod = 1.0f;
-    samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-    
-    if (vkCreateSampler(devicePtr->vulkanDevice, &samplerCreateInfo, VK_NULL_HANDLE, &vulkanSampler))
-    {
-        std::cout << "failed to create sampler!" << std::endl;
-    }
 }
 
 void compileshader()
@@ -459,7 +443,7 @@ void createRenderpass()
     for (uint32_t i = 0; i < swapchainImageCount; i++)
     {
         renderpass::create_framebuffer(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_SWAPCHAIN], vulkanFramebuffers[render::RENDERPASS_SWAPCHAIN + i], windowPtr->windowWidth, windowPtr->windowHeight, {
-        swapchainImages[i].imageView, imagebuffers[IMAGE_INDEX_DEPTH].imageView
+        swapchainImages[i].imageView, imagebuffers[IMAGE_INDEX_DEPTH]->imageView
             });
     }
 
@@ -473,8 +457,8 @@ void createRenderpass()
     });
 
     renderpass::create_framebuffer(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_GBUFFER], vulkanFramebuffers[render::RENDERPASS_GBUFFER], windowPtr->windowWidth, windowPtr->windowHeight, {
-        imagebuffers[IMAGE_INDEX_GBUFFER_POS].imageView, imagebuffers[IMAGE_INDEX_GBUFFER_NORM].imageView, imagebuffers[IMAGE_INDEX_GBUFFER_TEX].imageView, 
-        imagebuffers[IMAGE_INDEX_GBUFFER_ALBEDO].imageView, imagebuffers[IMAGE_INDEX_DEPTH].imageView
+        imagebuffers[IMAGE_INDEX_GBUFFER_POS]->imageView, imagebuffers[IMAGE_INDEX_GBUFFER_NORM]->imageView, imagebuffers[IMAGE_INDEX_GBUFFER_TEX]->imageView, 
+        imagebuffers[IMAGE_INDEX_GBUFFER_ALBEDO]->imageView, imagebuffers[IMAGE_INDEX_DEPTH]->imageView
     });
 
     //shadowmap pass
@@ -484,8 +468,46 @@ void createRenderpass()
     });
 
     renderpass::create_framebuffer(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_SHADOWMAP], vulkanFramebuffers[render::RENDERPASS_SHADOWMAP], shadowmapSize, shadowmapSize, {
-        imagebuffers[IMAGE_INDEX_SHADOWMAP].imageView, imagebuffers[IMAGE_INDEX_SHADOWMAP_DEPTH].imageView
+        imagebuffers[IMAGE_INDEX_SHADOWMAP]->imageView, imagebuffers[IMAGE_INDEX_SHADOWMAP_DEPTH]->imageView
         });
+}
+
+void updatelightingdescriptorset(bool blur)
+{
+    if (blur)
+    {
+        descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_LIGHT], {
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_POS]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_NORM]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_TEX]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_ALBEDO]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_SHADOWMAP_BLUR]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6, {}, {vulkanSamplers[SAMPLE_INDEX_SKYDOME], imagebuffers[IMAGE_INDEX_SKYDOME]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 7, {uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].range}, {}},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 8, {uniformbuffers[UNIFORM_INDEX_CAMERA].buf, 0, uniformbuffers[UNIFORM_INDEX_CAMERA].range}, {}},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 9, {uniformbuffers[UNIFORM_INDEX_LIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT].range}, {}},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10, {uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].range}, {}},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 11, {uniformbuffers[UNIFORM_INDEX_HAMMERSLEYBLOCK].buf, 0, uniformbuffers[UNIFORM_INDEX_HAMMERSLEYBLOCK].range}, {}},
+        });
+    }
+    else
+    {
+        descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_LIGHT], {
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_POS]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_NORM]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_TEX]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_ALBEDO]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_SHADOWMAP]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6, {}, {vulkanSamplers[SAMPLE_INDEX_SKYDOME], imagebuffers[IMAGE_INDEX_SKYDOME]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 7, {uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].range}, {}},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 8, {uniformbuffers[UNIFORM_INDEX_CAMERA].buf, 0, uniformbuffers[UNIFORM_INDEX_CAMERA].range}, {}},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 9, {uniformbuffers[UNIFORM_INDEX_LIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT].range}, {}},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10, {uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].range}, {}},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 11, {uniformbuffers[UNIFORM_INDEX_HAMMERSLEYBLOCK].buf, 0, uniformbuffers[UNIFORM_INDEX_HAMMERSLEYBLOCK].range}, {}},
+        });
+    }
 }
 
 void createdescriptorset()
@@ -493,7 +515,7 @@ void createdescriptorset()
     descriptor::create_descriptorpool(devicePtr->vulkanDevice, vulkanDescriptorPool, {
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 9 },
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 5 },
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 9 },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 11 },
         { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2 },
         });
 
@@ -515,23 +537,16 @@ void createdescriptorset()
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 2},
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 3},
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 4},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 5},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 6},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_FRAGMENT_BIT, 7},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 5},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 6},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 7},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 8},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_FRAGMENT_BIT, 9},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 10},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 11},
     });
 
-    descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_LIGHT], {
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_GBUFFER_POS].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_GBUFFER_NORM].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_GBUFFER_TEX].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_GBUFFER_ALBEDO].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_SHADOWMAP_BLUR].imageView, VK_IMAGE_LAYOUT_GENERAL}},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 5, {uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].range}, {}},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 6, {uniformbuffers[UNIFORM_INDEX_CAMERA].buf, 0, uniformbuffers[UNIFORM_INDEX_CAMERA].range}, {}},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 7, {uniformbuffers[UNIFORM_INDEX_LIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT].range}, {}},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 8, {uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].range}, {}},
-        });
+    updatelightingdescriptorset(true);
 
     //local light pass
     descriptor::create_descriptorset_layout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_LOCAL_LIGHT], vulkanDescriptorSets[render::DESCRIPTOR_LOCAL_LIGHT], vulkanDescriptorPool, {
@@ -546,10 +561,10 @@ void createdescriptorset()
 
     descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_LOCAL_LIGHT], {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, {uniformbuffers[UNIFORM_INDEX_PROJECTION].buf, 0, uniformbuffers[UNIFORM_INDEX_PROJECTION].range}, {}},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_GBUFFER_POS].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_GBUFFER_NORM].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_GBUFFER_TEX].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_GBUFFER_ALBEDO].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_POS]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_NORM]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_TEX]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_ALBEDO]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 5, {uniformbuffers[UNIFORM_INDEX_CAMERA].buf, 0, uniformbuffers[UNIFORM_INDEX_CAMERA].range}, {}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 6, {uniformbuffers[UNIFORM_INDEX_LIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT].range}, {}},
         });
@@ -583,8 +598,19 @@ void createdescriptorset()
         });
 
     descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_SHADOWMAP_BLUR], {
-        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_SHADOWMAP].imageView, VK_IMAGE_LAYOUT_GENERAL}},
-        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_SHADOWMAP_BLUR].imageView, VK_IMAGE_LAYOUT_GENERAL}},
+        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_SHADOWMAP]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
+        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_SHADOWMAP_BLUR]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
+        });
+
+    //skydome
+    descriptor::create_descriptorset_layout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_SKYDOME], vulkanDescriptorSets[render::DESCRIPTOR_SKYDOME], vulkanDescriptorPool, {
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1},
+        });
+
+    descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_SKYDOME], {
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, {uniformbuffers[UNIFORM_INDEX_PROJECTION].buf, 0, uniformbuffers[UNIFORM_INDEX_PROJECTION].range}, {}},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_SKYDOME]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
         });
 }
 
@@ -800,6 +826,44 @@ void createPipeline()
         pipeline::create_compute_pipeline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_SHADOWMAP_BLUR_HORIZONTAL], vulkanPipelineCache,
             { "data/shaders/blurshadow_horizontal.comp.spv", VK_SHADER_STAGE_COMPUTE_BIT });
     }
+
+    //skydome pass
+    {
+        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_SKYDOME], vulkanPipelineLayouts[render::PIPELINE_SKYDOME]);
+
+        VkGraphicsPipelineCreateInfo pipelineCreateInfo{};
+        pipelineCreateInfo.layout = vulkanPipelineLayouts[render::PIPELINE_SKYDOME];
+        pipelineCreateInfo.renderPass = vulkanRenderpasses[render::RENDERPASS_SWAPCHAIN];
+
+        std::vector<VkVertexInputAttributeDescription> vertexinputs = {
+            { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 },
+        };
+
+        VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo = pipeline::getInputAssemblyCreateInfo();
+        VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo = pipeline::getRasterizationCreateInfo(VK_CULL_MODE_BACK_BIT);
+        VkPipelineColorBlendAttachmentState pipelinecolorblendattachment = pipeline::getColorBlendAttachment(VK_FALSE);
+        std::vector<VkPipelineColorBlendAttachmentState> pipelinecolorblendattachments = { pipelinecolorblendattachment };
+        VkPipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo = pipeline::getColorBlendCreateInfo(static_cast<uint32_t>(pipelinecolorblendattachments.size()), pipelinecolorblendattachments.data());
+        VkPipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo = pipeline::getMultisampleCreateInfo(VK_SAMPLE_COUNT_1_BIT);
+        VkViewport viewport = pipeline::getViewport(windowPtr->windowWidth, windowPtr->windowHeight);
+        VkRect2D scissor = pipeline::getScissor(windowPtr->windowWidth, windowPtr->windowHeight);
+        VkPipelineViewportStateCreateInfo pipelineViewportStateCreateInfo = pipeline::getViewportCreateInfo(&viewport, &scissor);
+        VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo = pipeline::getDepthStencilCreateInfo(VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);
+        VkVertexInputBindingDescription pipelinevertexinputbinding = pipeline::getVertexinputbindingDescription(sizeof(glm::vec3));
+        VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo = pipeline::getVertexinputAttributeDescription(&pipelinevertexinputbinding, vertexinputs);
+
+        pipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
+        pipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
+        pipelineCreateInfo.pColorBlendState = &pipelineColorBlendStateCreateInfo;
+        pipelineCreateInfo.pMultisampleState = &pipelineMultisampleStateCreateInfo;
+        pipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
+        pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
+        pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
+        pipeline::create_pipieline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_SKYDOME], vulkanPipelineCache, {
+                {"data/shaders/skydome.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+                {"data/shaders/skydome.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
+            });
+    }
 }
 
 void createcommandbuffer()
@@ -953,6 +1017,24 @@ void updatebuffer()
         memcpy(data5, &lit, uniformbuffers[UNIFORM_INDEX_LIGHT].range);
         vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_LIGHT].memory);
     }
+
+    {
+        if (hammersley_N.isChanged())
+        {
+            hammersley.build(hammersley_N.value);
+
+            void* data;
+            vkMapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_HAMMERSLEYBLOCK].memory, 0, uniformbuffers[UNIFORM_INDEX_HAMMERSLEYBLOCK].range, 0, &data);
+            memcpy(data, &hammersley.N, sizeof(int));
+            data = static_cast<int*>(data) + 4;
+            for (int i = 0; i < hammersley.N; ++i)
+            {
+                memcpy(data, &hammersley.hammersley[i], sizeof(float) * 2);
+                data = static_cast<int*>(data) + 4;
+            }
+            vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_HAMMERSLEYBLOCK].memory);
+        }
+    }
 }
 
 void setupbuffer()
@@ -979,12 +1061,17 @@ void setupbuffer()
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R8G8B8A8_SNORM, windowPtr->windowWidth, windowPtr->windowHeight, imagebuffers[IMAGE_INDEX_GBUFFER_ALBEDO]);
 
     memPtr->create_fb_image(devicePtr->vulkanDevice, shadowmapFormat, shadowmapSize, shadowmapSize, imagebuffers[IMAGE_INDEX_SHADOWMAP]);
-    memPtr->transitionImage(devicePtr, vulkanGraphicsQueue, imagebuffers[IMAGE_INDEX_SHADOWMAP], VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+    memPtr->transitionImage(devicePtr, vulkanGraphicsQueue, imagebuffers[IMAGE_INDEX_SHADOWMAP]->image, 1, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
     memPtr->create_fb_image(devicePtr->vulkanDevice, shadowmapFormat, shadowmapSize, shadowmapSize, imagebuffers[IMAGE_INDEX_SHADOWMAP_BLUR]);
-    memPtr->transitionImage(devicePtr, vulkanGraphicsQueue, imagebuffers[IMAGE_INDEX_SHADOWMAP_BLUR], VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+    memPtr->transitionImage(devicePtr, vulkanGraphicsQueue, imagebuffers[IMAGE_INDEX_SHADOWMAP_BLUR]->image, 1, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
     memPtr->create_depth_image(devicePtr, vulkanGraphicsQueue, vulkanDepthFormat, shadowmapSize, shadowmapSize, imagebuffers[IMAGE_INDEX_SHADOWMAP_DEPTH]);
+
+    uint32_t miplevel;
+    memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Hamarikyu_Bridge_B/14-Hamarikyu_Bridge_B_3k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel);
+    memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Hamarikyu_Bridge_B/14-Hamarikyu_Bridge_B_Env.hdr", imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE], miplevel);
+    memPtr->create_sampler(devicePtr, vulkanSamplers[SAMPLE_INDEX_SKYDOME], miplevel);
 
     {
         std::vector<float> vertices = {
@@ -1082,6 +1169,7 @@ void setupbuffer()
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(camera), 1, uniformbuffers[UNIFORM_INDEX_CAMERA]);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(light)*/64, 64, uniformbuffers[UNIFORM_INDEX_LIGHT]);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(shadow), 1, uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING]);
+    memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(HammersleyBlock)*/1616, 1, uniformbuffers[UNIFORM_INDEX_HAMMERSLEYBLOCK]);
 
     updatebuffer();
 }
@@ -1102,6 +1190,7 @@ void freebuffer()
     for (auto& image : imagebuffers)
     {
         memPtr->free_image(devicePtr->vulkanDevice, image);
+        delete image;
     }
 }
 
@@ -1231,7 +1320,11 @@ void close()
 
     devicePtr->free_command_buffer(static_cast<uint32_t>(vulkanCommandBuffers.size()), vulkanCommandBuffers.data(), static_cast<uint32_t>(vulkanComputeCommandBuffers.size()), vulkanComputeCommandBuffers.data());
 
-    vkDestroySampler(devicePtr->vulkanDevice, vulkanSampler, VK_NULL_HANDLE);
+    for (auto sampler : vulkanSamplers)
+    {
+        vkDestroySampler(devicePtr->vulkanDevice, sampler, VK_NULL_HANDLE);
+    }
+
     guiPtr->close(devicePtr->vulkanDevice);
     windowPtr->close_window();
     vkDestroyPipelineCache(devicePtr->vulkanDevice, vulkanPipelineCache, VK_NULL_HANDLE);
@@ -1342,29 +1435,37 @@ int main(void)
 
             if (ImGui::BeginMenu("Setting"))
             {
-                ImGui::Checkbox("Blur Shadow", &blurshadow);
-
-                ImGui::DragFloat("Depth Bias", &shadowsetting.depthBias, 0.00001f, 0.0f, 0.1f, "%.5f");
-                ImGui::DragFloat("Shadow Bias", &shadowsetting.shadowBias, 0.00001f, 0.0f, 0.1f, "%.5f");
-                ImGui::DragFloat("Shadow Far_plane", &shadowsetting.far_plane, 1.0f, 0.0f, 100.0f);
-
-                const char* items[] = { "None", "Monument Shader Mapping", "No Shadow"};
-
-                if (ImGui::BeginCombo("Shadow Type", items[shadowsetting.type]))
+                if (ImGui::BeginMenu("Shadow"))
                 {
-                    for (int n = 0; n < IM_ARRAYSIZE(items); n++)
+                    ImGui::Checkbox("Blur Shadow", &blurshadow);
+
+                    ImGui::DragFloat("Depth Bias", &shadowsetting.depthBias, 0.00001f, 0.0f, 0.1f, "%.5f");
+                    ImGui::DragFloat("Shadow Bias", &shadowsetting.shadowBias, 0.00001f, 0.0f, 0.1f, "%.5f");
+                    ImGui::DragFloat("Shadow Far_plane", &shadowsetting.far_plane, 1.0f, 0.0f, 100.0f);
+
+                    const char* items[] = { "None", "Monument Shader Mapping", "No Shadow" };
+
+                    if (ImGui::BeginCombo("Shadow Type", items[shadowsetting.type]))
                     {
-                        bool is_selected = (shadowsetting.type == n);
-                        if (ImGui::Selectable(items[n], is_selected))
+                        for (int n = 0; n < IM_ARRAYSIZE(items); n++)
                         {
-                            shadowsetting.type = n;
-                            if (is_selected)
+                            bool is_selected = (shadowsetting.type == n);
+                            if (ImGui::Selectable(items[n], is_selected))
                             {
-                                ImGui::SetItemDefaultFocus();
+                                shadowsetting.type = n;
+                                if (is_selected)
+                                {
+                                    ImGui::SetItemDefaultFocus();
+                                }
                             }
                         }
+                        ImGui::EndCombo();
                     }
-                    ImGui::EndCombo();
+                    ImGui::EndMenu();
+                }
+
+                {
+                    ImGui::DragInt("Hammersley block size", &hammersley_N, 1, 1, 100);
                 }
 
                 if (ImGui::BeginMenu("Deferred Target"))
@@ -1548,41 +1649,14 @@ int main(void)
 
         if (blurshadow.isChanged())
         {
-            if (blurshadow.value)
-            {
-                descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_LIGHT], {
-                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_GBUFFER_POS].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_GBUFFER_NORM].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_GBUFFER_TEX].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_GBUFFER_ALBEDO].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_SHADOWMAP_BLUR].imageView, VK_IMAGE_LAYOUT_GENERAL}},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 5, {uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].range}, {}},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 6, {uniformbuffers[UNIFORM_INDEX_CAMERA].buf, 0, uniformbuffers[UNIFORM_INDEX_CAMERA].range}, {}},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 7, {uniformbuffers[UNIFORM_INDEX_LIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT].range}, {}},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 8, {uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].range}, {}},
-                    });
-            }
-            else
-            {
-                descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_LIGHT], {
-                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_GBUFFER_POS].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_GBUFFER_NORM].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_GBUFFER_TEX].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_GBUFFER_ALBEDO].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_SHADOWMAP].imageView, VK_IMAGE_LAYOUT_GENERAL}},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 5, {uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].range}, {}},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 6, {uniformbuffers[UNIFORM_INDEX_CAMERA].buf, 0, uniformbuffers[UNIFORM_INDEX_CAMERA].range}, {}},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 7, {uniformbuffers[UNIFORM_INDEX_LIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT].range}, {}},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 8, {uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].range}, {}},
-                    });
-            }
+            updatelightingdescriptorset(blurshadow.value);
         }
 
         if (blurshadow.value)
         {
             descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_SHADOWMAP_BLUR], {
-                {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_SHADOWMAP].imageView, VK_IMAGE_LAYOUT_GENERAL}},
-                {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_SHADOWMAP_BLUR].imageView, VK_IMAGE_LAYOUT_GENERAL}},
+                {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_SHADOWMAP]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
+                {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_SHADOWMAP_BLUR]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
                 });
 
             {
@@ -1631,8 +1705,8 @@ int main(void)
             vkQueueWaitIdle(vulkanComputeQueue);
 
             descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_SHADOWMAP_BLUR], {
-                {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_SHADOWMAP_BLUR].imageView, VK_IMAGE_LAYOUT_GENERAL}},
-                {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, {}, {vulkanSampler, imagebuffers[IMAGE_INDEX_SHADOWMAP_BLUR].imageView, VK_IMAGE_LAYOUT_GENERAL}},
+                {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_SHADOWMAP_BLUR]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
+                {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_SHADOWMAP_BLUR]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
                 });
 
             {
@@ -1726,7 +1800,6 @@ int main(void)
                 render::draw(vulkanCommandBuffers[commandbufferindex], vertexbuffers[VERTEX_INDEX_FULLSCREENQUAD]);
             }
 
-            guiPtr->render(vulkanCommandBuffers[commandbufferindex]);
 
             if (!nolocallight)
             {
@@ -1760,6 +1833,18 @@ int main(void)
                     }
                 }
             }
+
+            {
+                vkCmdBindPipeline(vulkanCommandBuffers[commandbufferindex], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelines[render::PIPELINE_SKYDOME]);
+                std::array<uint32_t, 1> dynamicoffsets = { 0 };
+
+                vkCmdBindDescriptorSets(vulkanCommandBuffers[commandbufferindex], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelineLayouts[render::PIPELINE_SKYDOME], 0, 1,
+                    &vulkanDescriptorSets[render::DESCRIPTOR_SKYDOME], 0, 0);
+
+                render::draw(vulkanCommandBuffers[commandbufferindex], vertexbuffers[VERTEX_INDEX_SPHERE_POSONLY]);
+            }
+
+            guiPtr->render(vulkanCommandBuffers[commandbufferindex]);
 
             vkCmdEndRenderPass(vulkanCommandBuffers[commandbufferindex]);
 
