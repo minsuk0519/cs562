@@ -1435,6 +1435,8 @@ int main(void)
 
             if (ImGui::BeginMenu("Setting"))
             {
+                ImGui::Checkbox("ShadowEnable", &lightsetting.shadowenable);
+
                 if (ImGui::BeginMenu("Shadow"))
                 {
                     ImGui::Checkbox("Blur Shadow", &blurshadow);
@@ -1483,6 +1485,10 @@ int main(void)
 
                     ImGui::EndMenu();
                 }
+
+                ImGui::Checkbox("HighDynamicRange", &lightsetting.highdynamicrange);
+                ImGui::DragFloat("Gamma", &lightsetting.gamma, 0.01f, 0.0f, 10.0f);
+                ImGui::DragFloat("Exposure", &lightsetting.exposure, 1.0f, 0.1f, 10000.0f);
 
                 {
                     bool lightspacevisible = lightspacetoggle;

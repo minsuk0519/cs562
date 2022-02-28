@@ -18,6 +18,14 @@ layout(binding = 6) uniform sampler2D environmentTex;
 layout(binding = 7) uniform lightSetting
 {
 	int outputTex;
+	int shadowenable;
+	float gamma;
+	float exposure;
+	int highdynamicrange;
+	
+	int Dmethod;
+	int Fmethod;
+	int Gmethod;
 } setting;
 
 layout(binding = 8) uniform camera
@@ -90,6 +98,7 @@ void main()
 	float roughness = texTexData.z;
 	float metal = texTexData.w;
 	vec3 albedo = texture(albedoTex, outTexcoord).xyz;
+	albedo = pow(albedo, vec3(2.2));
 	
 	vec3 viewDir = normalize(cam.position - position);
 	
@@ -101,8 +110,8 @@ void main()
 	vec3 lightDir = normalize(-sun.direction);
 	
 	resultColor += calcLight(lightDir, viewDir, normal, albedo, sun.color, roughness, metal, F0);
-	float shadow = calcShadow(shadow, position, depthTex);
-	resultColor *= (1.0 - shadow);
+	resultColor = max(resultColor, 0.0);
+	float shadow = setting.shadowenable * calcShadow(shadow, position, depthTex);
 	
 	vec3 R = 2 * dot(normal, viewDir) * normal - viewDir;
 	vec3 A = normalize(vec3(R.z, 0, -R.x));
@@ -121,20 +130,24 @@ void main()
 		
 		vec3 H = normalize(viewDir + wk);
 		float DH = calNormalDistribution(dot(normal, H), roughness);
-				
+		
 		float level = 0.5 * (log2(texSize.x*texSize.y/random.num) - log2(DH / 4));
 		if(DH <= 0) level = 0;
 		
 		vec3 specular = textureLod(environmentTex, SphericalToEquirectangular(wk), level).xyz * cos(theta);
-						
+		
 		float denom = 4 * dot(wk, normal) * dot(viewDir, normal);
 		vec3 FG = (calGeometry(dot(wk, normal), dot(viewDir, normal), roughness) * calFresnel(dot(wk, H), F0));
 		
 		specularcolor += specular * FG / denom;
 	}
-	resultColor = specularcolor / random.num;
+	resultColor += specularcolor / random.num;
+	resultColor *= (1.0 - shadow);
 	
 	resultColor += albedo * (4 / PI) * texture(irradianceTex, SphericalToEquirectangular(normal)).xyz;
+	
+	vec3 eC = setting.exposure * resultColor;
+	resultColor = (setting.highdynamicrange == 1) ? (pow(eC / (eC + vec3(1.0)), vec3(1.0 / setting.gamma))) : resultColor;
     
 	outColor = vec4(resultColor, 1.0);
 }

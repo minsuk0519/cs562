@@ -14,7 +14,7 @@ struct ObjectProperties
 {
 	glm::mat4 modelMat = glm::mat4(1.0f);
 	glm::vec3 albedoColor = glm::vec3(1.0f, 1.0f, 1.0f);;
-	float roughness = 0.5f;
+	float roughness = 0.02f;
 	float metallic = 0.5f;
 };
 
@@ -30,9 +30,25 @@ enum outputMode
 	OUTPUTMODE_MAX,
 };
 
+enum BRDFMode
+{
+	BRDF_PHONG = 0,
+	BRDF_GGX,
+	BRDF_Beckman,
+	BRDF_MAX,
+};
+
 struct lightSetting
 {
 	outputMode outputTex;
+	bool shadowenable = true;
+	float gamma = 2.2f;
+	float exposure = 1.0f;
+	bool highdynamicrange = true;
+
+	BRDFMode DMethod = BRDFMode::BRDF_GGX;
+	BRDFMode FMethod = BRDFMode::BRDF_GGX;
+	BRDFMode GMethod = BRDFMode::BRDF_GGX;
 };
 
 struct camera
