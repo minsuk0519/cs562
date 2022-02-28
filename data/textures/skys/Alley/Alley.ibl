@@ -1,0 +1,37 @@
+[Header]
+ICOfile = "Alley8k_Thumb.jpg"
+Name = "Alley"
+Author = "Alex Hart"
+Location = "Providence, RI"
+Comment = "Dark alley, large blank walls"
+GEOlat = 41.8237329999999970
+GEOlong = -71.4066590000000050
+Link = "http://eahart.com"
+Date = "2010:05:11"
+Time = "09:00:00"
+
+[Background]
+BGfile = "Alley8k_Bg.jpg"
+BGmap = 1
+BGu = 0.000000
+BGv = 0.000000
+BGheight = 4000
+
+[Enviroment]
+EVfile = "Alley8k_Env.hdr"
+EVmap = 1
+EVu = 0.000000
+EVv = 0.000000
+EVheight = 180
+EVmulti = 1.000000
+EVgamma = 1.000000
+
+[Reflection]
+REFfile = "Alley8k_Ref.hdr"
+REFmap = 1
+REFu = 0.000000
+REFv = 0.000000
+REFheight = 1024
+REFmulti = 1.000000
+REFgamma = 1.000000
+

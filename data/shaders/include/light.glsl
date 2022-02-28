@@ -1,3 +1,12 @@
+struct lightsetting
+{
+	int outputTex;
+	int shadowenable;
+	float gamma;
+	float exposure;
+	int highdynamicrange;
+};
+
 struct light
 {
 	vec3 position;
@@ -14,14 +23,44 @@ struct hammersley
 };
 
 const float PI = 3.14159265358979;
+const float e = 2.718281828459045;
 
-float calNormalDistribution(float NdotH, float roughness)
+float calNormalDistribution_Phong(float NdotH, float roughness)
+{
+	float result = (roughness + 2) / (2 * PI);
+	return result * pow(NdotH, roughness);
+}
+
+float calNormalDistribution_GGX(float NdotH, float roughness)
 {	
-	float asquare = roughness * roughness;
-	float value = NdotH * NdotH * (asquare - 1.0) + 1.0;
+	float roughnesssquare = roughness * roughness;
+	float value = NdotH * NdotH * (roughnesssquare - 1.0) + 1.0;
 	value = value * value * PI;
 	
-	return asquare / value;
+	return roughnesssquare / value;
+}
+
+float calNormalDistribution_Beckman(float NdotH, float roughness)
+{
+	float roughnesssquare = roughness * roughness;
+	float NdotHsquare = NdotH * NdotH;
+	float denominator = PI * roughnesssquare * NdotHsquare * NdotHsquare;
+	float tantheta = sqrt(1.0 - NdotHsquare) / NdotH;
+	float numerator = pow(e, - (tantheta * tantheta) / roughnesssquare);
+	
+	return numerator / denominator;
+}
+
+float calGeometry_Phong(float VdotN, float roughness)
+{
+	if(roughness >= 1.6) return 1.0;
+	if(VdotN > 1.0) return 1.0;
+	float tantheta = sqrt(1.0 - VdotN * VdotN) / VdotN;
+	float a = sqrt((roughness / 2.0) + 1.0) / tantheta;
+	float asquare = a * a;
+	float numerator = 3.535 * a + 2.181 * asquare;
+	float denominator = 1.0 + 2.276 * a + 2.577 * asquare;
+	return numerator / denominator;
 }
 
 float calGeometry_GGX(float VdotN, float roughness)
@@ -34,7 +73,19 @@ float calGeometry_GGX(float VdotN, float roughness)
 	return value / denom;
 }
 
-float calGeometry(float NdotV, float NdotL, float roughness)
+float calGeometry_Beckman(float VdotN, float roughness)
+{
+	if(roughness >= 1.6) return 1.0;
+	if(VdotN > 1.0) return 1.0;
+	float tantheta = sqrt(1.0 - VdotN * VdotN) / VdotN;
+	float a = 1.0 / (roughness * tantheta);
+	float asquare = a * a;
+	float numerator = 3.535 * a + 2.181 * asquare;
+	float denominator = 1.0 + 2.276 * a + 2.577 * asquare;
+	return numerator / denominator;
+}
+
+float calGeometry(float NdotV, float NdotL, float roughness, int Gmethod)
 {
 	//float alphaplusone = (roughness + 1.0);
     //float k = (alphaplusone * alphaplusone) / 8.0;
@@ -42,9 +93,16 @@ float calGeometry(float NdotV, float NdotL, float roughness)
     //float viewG = NdotV / (NdotV * (1.0 - k) + k);
     //float lightG = NdotL / (NdotL * (1.0 - k) + k);
 
-	float viewG = calGeometry_GGX(NdotV, roughness);
-	float lightG = calGeometry_GGX(NdotL, roughness);
-
+	//phong
+	//float viewG = calGeometry_Phong(NdotV, roughness);
+	//float lightG = calGeometry_Phong(NdotL, roughness);
+	//GGX
+	//float viewG = calGeometry_GGX(NdotV, roughness);
+	//float lightG = calGeometry_GGX(NdotL, roughness);
+	//Beckman
+	float viewG = calGeometry_Phong(NdotV, roughness);
+	float lightG = calGeometry_Phong(NdotL, roughness);
+	
 	return viewG * lightG;
 }
 
@@ -84,8 +142,8 @@ vec3 calcLight(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 albedo, vec3 light
 	float NdotL = max(dot(normal, lightDir), 0.0);
 	float NdotH = max(dot(normal, halfway), 0.0);
 
-	float D = calNormalDistribution(NdotH, roughness);
-	float G = calGeometry(NdotV, NdotL, roughness);      
+	float D = calNormalDistribution_GGX(NdotH, roughness);
+	float G = calGeometry(NdotV, NdotL, roughness, 1);      
 	vec3 F = calFresnel(NdotH, F0);
 			   
 	vec3 specular = D * G * F / (4.0 * NdotV * NdotL + 0.0001);

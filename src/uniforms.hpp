@@ -30,14 +30,6 @@ enum outputMode
 	OUTPUTMODE_MAX,
 };
 
-enum BRDFMode
-{
-	BRDF_PHONG = 0,
-	BRDF_GGX,
-	BRDF_Beckman,
-	BRDF_MAX,
-};
-
 struct lightSetting
 {
 	outputMode outputTex;
@@ -45,10 +37,6 @@ struct lightSetting
 	float gamma = 2.2f;
 	float exposure = 1.0f;
 	bool highdynamicrange = true;
-
-	BRDFMode DMethod = BRDFMode::BRDF_GGX;
-	BRDFMode FMethod = BRDFMode::BRDF_GGX;
-	BRDFMode GMethod = BRDFMode::BRDF_GGX;
 };
 
 struct camera

@@ -17,22 +17,13 @@ layout(binding = 6) uniform sampler2D environmentTex;
 
 layout(binding = 7) uniform lightSetting
 {
-	int outputTex;
-	int shadowenable;
-	float gamma;
-	float exposure;
-	int highdynamicrange;
-	
-	int Dmethod;
-	int Fmethod;
-	int Gmethod;
-} setting;
+	lightsetting setting;
+};
 
 layout(binding = 8) uniform camera
 {
 	vec3 position;
 } cam;
-
 
 layout(binding = 9) uniform Sun
 {
@@ -48,6 +39,59 @@ layout(binding = 11) uniform low_discrepancy
 {
 	hammersley random;
 };
+
+vec3 calcImageBasedLight(vec3 viewDir, vec3 normal, float roughness, vec3 F0)
+{
+	vec3 R = 2 * dot(normal, viewDir) * normal - viewDir;
+	vec3 A = normalize(vec3(R.z, 0, -R.x));
+	vec3 B = normalize(cross(R, A));
+	
+	vec2 texSize = textureSize(environmentTex, 0);
+	float level = 0.5 * log2(texSize.x*texSize.y/random.num);
+	
+	float NdotV = dot(normal, viewDir);
+	vec3 specularcolor = vec3(0,0,0);
+	
+	for(int i = 0; i < random.num; ++i)
+	{
+		//phong
+		//float theta = acos(pow(random.pos[i].y, 1 / (roughness + 1)));
+		//GGX
+		//float theta = atan(roughness * sqrt(random.pos[i].y) / sqrt(1.0 - random.pos[i].y));
+		//Beckman
+		float theta = atan(sqrt(- roughness * roughness * log(1 - random.pos[i].y)));
+		vec2 uv = vec2(random.pos[i].x, theta / PI);
+		
+		vec3 L = EquirectangularToSpherical(uv);
+		vec3 wk = normalize(L.x * A + L.y * B + L.z * R);
+		
+		vec3 halfway = normalize(viewDir + wk);
+		
+		float NdotH =  dot(normal, halfway);
+		float wkdotH = dot(wk, halfway);
+		float wkdotN = dot(wk, normal);
+		
+		///phong
+		//float DH = calNormalDistribution_Phong(NdotH, roughness);
+		//GGX
+		//float DH = calNormalDistribution_GGX(NdotH, roughness);
+		//Beckman
+		float DG = calNormalDistribution_Beckman(NdotH, roughness);
+		
+		float lod = level - 0.5 * log2(DH);
+		if(DH <= 0) lod = 0;
+		
+		vec3 specular = textureLod(environmentTex, SphericalToEquirectangular(wk), lod).xyz * cos(theta);
+		//vec3 specular = texture(environmentTex, SphericalToEquirectangular(wk)).xyz * cos(theta);
+		
+		float denom = 4 * wkdotN * NdotV;
+		vec3 FG = (calGeometry(NdotV, wkdotN, roughness, setting.BRDFmethod) * calFresnel(wkdotH, F0));
+		
+		specularcolor += specular * FG / denom;
+	}
+	
+	return specularcolor / random.num;
+}
 
 void main()
 {
@@ -95,14 +139,18 @@ void main()
 	vec3 normal = normalize(texture(normTex, outTexcoord).xyz);
 	vec4 texTexData = texture(texTex, outTexcoord);
 	vec2 texCoord = texTexData.xy;
+	//phong
+	//float roughness = -2.0 + 2.0 / (texTexData.z * texTexData.z);
+	//GGX & Beckman
 	float roughness = texTexData.z;
 	float metal = texTexData.w;
 	vec3 albedo = texture(albedoTex, outTexcoord).xyz;
-	albedo = pow(albedo, vec3(2.2));
+	albedo = mix(albedo, pow(albedo, vec3(2.2)), setting.highdynamicrange);
 	
 	vec3 viewDir = normalize(cam.position - position);
 	
-	vec3 F0 = vec3(0.04); 
+	vec3 F0 = (setting.highdynamicrange == 1) ? vec3(0.04) : vec3(0.232);
+	
     F0 = mix(F0, albedo, metal);
 	
 	vec3 resultColor = vec3(0,0,0);
@@ -111,43 +159,15 @@ void main()
 	
 	resultColor += calcLight(lightDir, viewDir, normal, albedo, sun.color, roughness, metal, F0);
 	resultColor = max(resultColor, 0.0);
-	float shadow = setting.shadowenable * calcShadow(shadow, position, depthTex);
-	
-	vec3 R = 2 * dot(normal, viewDir) * normal - viewDir;
-	vec3 A = normalize(vec3(R.z, 0, -R.x));
-	vec3 B = normalize(cross(R, A));
-	
-	vec2 texSize = textureSize(environmentTex, 0);
-	
-	vec3 specularcolor = vec3(0,0,0);
-	for(int i = 0; i < random.num; ++i)
-	{
-		float theta = atan(roughness * sqrt(random.pos[i].y) / sqrt(1.0 - random.pos[i].y));
-		vec2 uv = vec2(random.pos[i].x, theta / PI);
-		
-		vec3 L = EquirectangularToSpherical(uv);
-		vec3 wk = normalize(L.x * A + L.y * B + L.z * R);
-		
-		vec3 H = normalize(viewDir + wk);
-		float DH = calNormalDistribution(dot(normal, H), roughness);
-		
-		float level = 0.5 * (log2(texSize.x*texSize.y/random.num) - log2(DH / 4));
-		if(DH <= 0) level = 0;
-		
-		vec3 specular = textureLod(environmentTex, SphericalToEquirectangular(wk), level).xyz * cos(theta);
-		
-		float denom = 4 * dot(wk, normal) * dot(viewDir, normal);
-		vec3 FG = (calGeometry(dot(wk, normal), dot(viewDir, normal), roughness) * calFresnel(dot(wk, H), F0));
-		
-		specularcolor += specular * FG / denom;
-	}
-	resultColor += specularcolor / random.num;
+	float shadow = mix(0.0, calcShadow(shadow, position, depthTex), setting.shadowenable);
 	resultColor *= (1.0 - shadow);
+	
+	resultColor += calcImageBasedLight(viewDir, normal, roughness, F0);
 	
 	resultColor += albedo * (4 / PI) * texture(irradianceTex, SphericalToEquirectangular(normal)).xyz;
 	
 	vec3 eC = setting.exposure * resultColor;
-	resultColor = (setting.highdynamicrange == 1) ? (pow(eC / (eC + vec3(1.0)), vec3(1.0 / setting.gamma))) : resultColor;
+	resultColor = mix(resultColor, pow(eC / (eC + vec3(1.0)), vec3(1.0 / setting.gamma)), setting.highdynamicrange);
     
 	outColor = vec4(resultColor, 1.0);
 }
