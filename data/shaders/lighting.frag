@@ -76,7 +76,7 @@ vec3 calcImageBasedLight(vec3 viewDir, vec3 normal, float roughness, vec3 F0)
 		//GGX
 		//float DH = calNormalDistribution_GGX(NdotH, roughness);
 		//Beckman
-		float DG = calNormalDistribution_Beckman(NdotH, roughness);
+		float DH = calNormalDistribution_Beckman(NdotH, roughness);
 		
 		float lod = level - 0.5 * log2(DH);
 		if(DH <= 0) lod = 0;
@@ -85,7 +85,7 @@ vec3 calcImageBasedLight(vec3 viewDir, vec3 normal, float roughness, vec3 F0)
 		//vec3 specular = texture(environmentTex, SphericalToEquirectangular(wk)).xyz * cos(theta);
 		
 		float denom = 4 * wkdotN * NdotV;
-		vec3 FG = (calGeometry(NdotV, wkdotN, roughness, setting.BRDFmethod) * calFresnel(wkdotH, F0));
+		vec3 FG = (calGeometry(NdotV, wkdotN, roughness) * calFresnel(wkdotH, F0));
 		
 		specularcolor += specular * FG / denom;
 	}
@@ -139,10 +139,12 @@ void main()
 	vec3 normal = normalize(texture(normTex, outTexcoord).xyz);
 	vec4 texTexData = texture(texTex, outTexcoord);
 	vec2 texCoord = texTexData.xy;
+	
 	//phong
 	//float roughness = -2.0 + 2.0 / (texTexData.z * texTexData.z);
 	//GGX & Beckman
 	float roughness = texTexData.z;
+	
 	float metal = texTexData.w;
 	vec3 albedo = texture(albedoTex, outTexcoord).xyz;
 	albedo = mix(albedo, pow(albedo, vec3(2.2)), setting.highdynamicrange);
