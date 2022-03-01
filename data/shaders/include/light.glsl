@@ -97,11 +97,11 @@ float calGeometry(float NdotV, float NdotL, float roughness)
 	//float viewG = calGeometry_Phong(NdotV, roughness);
 	//float lightG = calGeometry_Phong(NdotL, roughness);
 	//GGX
-	//float viewG = calGeometry_GGX(NdotV, roughness);
-	//float lightG = calGeometry_GGX(NdotL, roughness);
+	float viewG = calGeometry_GGX(NdotV, roughness);
+	float lightG = calGeometry_GGX(NdotL, roughness);
 	//Beckman
-	float viewG = calGeometry_Beckman(NdotV, roughness);
-	float lightG = calGeometry_Beckman(NdotL, roughness);
+	//float viewG = calGeometry_Beckman(NdotV, roughness);
+	//float lightG = calGeometry_Beckman(NdotL, roughness);
 	
 	return viewG * lightG;
 }

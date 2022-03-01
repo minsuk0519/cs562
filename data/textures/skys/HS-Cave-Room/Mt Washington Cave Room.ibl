@@ -1,0 +1,43 @@
+[Header]
+ICOfile = "Mt-Washington-Cave-Room_Thumb.jpg"
+Name = "Mt Washington Cave Room"
+Author = "HDRSource"
+Location = "White Mountains, New Hampshire"
+Comment = "room, cave room, tables, chairs, dining, entertainment, wood floor, lights, stage, hotel"
+GEOlat = 44.1569999999999960
+GEOlong = -71.5819999999999940
+Link = "http://www.hdrsource.com/"
+Date = "2009:10:12"
+Time = "10:15:00"
+
+[Background]
+BGfile = "Mt-Washington-Cave-Room_Bg.jpg"
+BGmap = 1
+BGu = 0.000000
+BGv = 0.000000
+BGheight = 4000
+
+[Enviroment]
+EVfile = "Mt-Washington-Cave-Room_Env.hdr"
+EVmap = 1
+EVu = 0.000000
+EVv = 0.000000
+EVheight = 180
+EVmulti = 1.000000
+EVgamma = 2.070175
+
+[Reflection]
+REFfile = "Mt-Washington-Cave-Room_Ref.hdr"
+REFmap = 1
+REFu = 0.000000
+REFv = 0.000000
+REFheight = 1600
+REFmulti = 1.000000
+REFgamma = 2.350877
+
+[Sun]
+SUNcolor = 255,255,255
+SUNmulti = 0.100000
+SUNu = 0.484000
+SUNv = 0.092000
+

@@ -939,15 +939,18 @@ void updatebuffer()
     objects[0]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(3.75f, -0.56f, -10.0f)) * glm::rotate(glm::mat4(1.0f), a, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(20.0f));
     objects[6]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(-3.75f, 1.7f, -10.0f)) * glm::rotate(glm::mat4(1.0f), PI - a, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.03f));
 
+    //sphere
     objects[1]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 3.5f, -12.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
     objects[2]->prop->albedoColor = glm::vec3(0.4f, 0.4f, 0.4f);
     objects[2]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(15.0f, 0.2f, 15.0f));
 
     objects[3]->prop->albedoColor = glm::vec3(0.4f, 0.1f, 0.4f);
     objects[3]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(-7.5f, 4.0f, -5.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.2f, 8.0f, 15.0f));
+    //backwall
     objects[4]->prop->albedoColor = glm::vec3(0.4f, 0.1f, 0.4f);
     objects[4]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 4.0f, -12.5f)) * glm::scale(glm::mat4(1.0f), glm::vec3(15.0f, 8.0f, 0.2f));
 
+    //screen
     objects[5]->prop->albedoColor = glm::vec3(0.2f, 0.8f, 0.5f);
     objects[5]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.5f, -9.5f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.2f, 3.0f, 6.0f));
 
@@ -965,6 +968,18 @@ void updatebuffer()
     objects[13]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(3.75f, 0.025f, -5.5f)) * glm::rotate(glm::mat4(1.0f), PI_HALF, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(2.0f));
     objects[14]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(3.25f, 0.025f, -6.0f)) * glm::rotate(glm::mat4(1.0f), PI_HALF, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(2.0f));
     objects[15]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(4.25f, 0.025f, -6.0f)) * glm::rotate(glm::mat4(1.0f), PI_HALF, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(2.0f));
+
+    objects[16]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 8.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f));
+
+    for (int i = 0; i < 5; ++i)
+    {
+        for (int j = 0; j < 5; ++j)
+        {
+            objects[16 + i * 5 + j]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f + 1.2f * (2.0f - i), 5.0f + 1.2f * (2.0f - j), 10.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
+            objects[16 + i * 5 + j]->prop->metallic = i / 5.0f;
+            objects[16 + i * 5 + j]->prop->roughness = (j / 5.0f) * (j / 5.0f);
+        }
+    }
 
     VkDeviceSize offset = 0;
     for (auto obj : objects)
@@ -1071,8 +1086,12 @@ void setupbuffer()
     uint32_t miplevel;
     //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Hamarikyu_Bridge_B/14-Hamarikyu_Bridge_B_3k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel);
     //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Hamarikyu_Bridge_B/14-Hamarikyu_Bridge_B_Env.hdr", imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE], miplevel);
-    memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Arches_E_PineTree/Arches_E_PineTree_3k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel);
-    memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Arches_E_PineTree/Arches_E_PineTree_Env.hdr", imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE], miplevel);
+    //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Arches_E_PineTree/Arches_E_PineTree_3k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel);
+    //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Arches_E_PineTree/Arches_E_PineTree_Env.hdr", imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE], miplevel);
+    memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Alexs_Apartment/Alexs_Apt_2k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel);
+    memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Alexs_Apartment/Alexs_Apt_Env.hdr", imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE], miplevel);
+    //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/HS-Cave-Room/Mt-Washington-Cave-Room_Ref.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel);
+    //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/HS-Cave-Room/Mt-Washington-Cave-Room_Env.hdr", imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE], miplevel);
     memPtr->create_sampler(devicePtr, vulkanSamplers[SAMPLE_INDEX_SKYDOME], miplevel);
 
     {
@@ -1163,6 +1182,18 @@ void setupbuffer()
         newobject = new object();
         newobject->create_object(static_cast<unsigned int>(bunnydata[0].indices.size()), vertexbuffers[VERTEX_INDEX_BUNNY]);
         objects.push_back(newobject);
+
+        vertexdata = generateSphere();
+        newobject = new object();
+        newobject->create_object(static_cast<unsigned int>(vertexdata.indices.size()), vertexbuffers[VERTEX_INDEX_SPHERE]);
+        objects.push_back(newobject);
+
+        for (int i = 0; i < 25; ++i)
+        {
+            newobject = new object();
+            newobject->create_object(static_cast<unsigned int>(vertexdata.indices.size()), vertexbuffers[VERTEX_INDEX_SPHERE]);
+            objects.push_back(newobject);
+        }
     }
 
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(Projection), 1, uniformbuffers[UNIFORM_INDEX_PROJECTION]);
