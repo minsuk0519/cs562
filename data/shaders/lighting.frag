@@ -94,9 +94,8 @@ vec3 calcImageBasedLight(vec3 viewDir, vec3 normal, float roughness, float metal
 	vec3 kS = calFresnel(NdotV, F0);
 	vec3 kD = vec3(1.0) - kS;
 	kD *= 1.0 - metal;
-	
+		
 	return specularcolor + kD * albedo * (4 / PI) * texture(irradianceTex, SphericalToEquirectangular(normal)).xyz;
-	//return kD * albedo * (4 / PI) * texture(irradianceTex, SphericalToEquirectangular(normal)).xyz;
 }
 
 void main()
@@ -170,7 +169,7 @@ void main()
 	float shadow = mix(0.0, calcShadow(shadow, position, depthTex), setting.shadowenable);
 	resultColor *= (1.0 - shadow);
 	
-	resultColor = calcImageBasedLight(viewDir, normal, roughness, metal, albedo, F0);
+	resultColor += calcImageBasedLight(viewDir, normal, roughness, metal, albedo, F0);
 	
 	vec3 eC = setting.exposure * resultColor;
 	resultColor = mix(resultColor, pow(eC / (eC + vec3(1.0)), vec3(1.0 / setting.gamma)), setting.highdynamicrange);

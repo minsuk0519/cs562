@@ -114,7 +114,7 @@ vec3 calFresnel(float cosine, vec3 F0)
 vec2 SphericalToEquirectangular(vec3 v)
 {
 	vec2 uv = vec2(0.5 - atan(v.x, v.z) / (2 * PI), acos(v.y) / PI);
-
+	
 	return uv;
 }
 
@@ -147,7 +147,7 @@ vec3 calcLight(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 albedo, vec3 light
 	vec3 F = calFresnel(NdotH, F0);
 			   
 	vec3 specular = D * G * F / (4.0 * NdotV * NdotL + 0.0001);
-		
+	
 	vec3 kS = F;
 	vec3 kD = vec3(1.0) - kS;
 	kD *= 1.0 - metal;

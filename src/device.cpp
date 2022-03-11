@@ -188,7 +188,7 @@ bool device::create_single_commandbuffer_begin(VkCommandBuffer& commandBuffer)
     return commandBuffer;
 }
 
-bool device::end_commandbuffer_submit(VkQueue graphicsqueue, VkCommandBuffer commandbuffer)
+bool device::end_commandbuffer_submit(VkQueue graphicsqueue, VkCommandBuffer commandbuffer, bool compute)
 {
     if (vkEndCommandBuffer(commandbuffer) != VK_SUCCESS)
     {
@@ -232,7 +232,8 @@ bool device::end_commandbuffer_submit(VkQueue graphicsqueue, VkCommandBuffer com
 
     vkDestroyFence(vulkanDevice, fence, nullptr);
 
-    free_command_buffer(1, &commandbuffer, 0, nullptr);
+    if(compute) free_command_buffer(0, nullptr, 1, &commandbuffer);
+    else free_command_buffer(1, &commandbuffer, 0, nullptr);
 
     return true;
 }

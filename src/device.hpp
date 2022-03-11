@@ -35,7 +35,7 @@ public:
 	VkCommandBufferAllocateInfo commandbuffer_allocateinfo(uint32_t count, bool compute);
 	bool create_single_commandbuffer_begin(VkCommandBuffer& commandBuffer);
 
-	bool end_commandbuffer_submit(VkQueue graphicsqueue, VkCommandBuffer commandbuffer);
+	bool end_commandbuffer_submit(VkQueue graphicsqueue, VkCommandBuffer commandbuffer, bool compute);
 
 	void free_command_buffer(uint32_t count, VkCommandBuffer* commandbuffer, uint32_t computecount, VkCommandBuffer* computecommandbuffer);
 

@@ -482,8 +482,8 @@ void updatelightingdescriptorset(bool blur)
             {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_TEX]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
             {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_ALBEDO]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
             {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_SHADOWMAP_BLUR]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
-            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6, {}, {vulkanSamplers[SAMPLE_INDEX_SKYDOME], imagebuffers[IMAGE_INDEX_SKYDOME]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6, {}, {vulkanSamplers[SAMPLE_INDEX_SKYDOME], imagebuffers[IMAGE_INDEX_SKYDOME]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
             {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 7, {uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].range}, {}},
             {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 8, {uniformbuffers[UNIFORM_INDEX_CAMERA].buf, 0, uniformbuffers[UNIFORM_INDEX_CAMERA].range}, {}},
             {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 9, {uniformbuffers[UNIFORM_INDEX_LIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT].range}, {}},
@@ -499,8 +499,8 @@ void updatelightingdescriptorset(bool blur)
             {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_TEX]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
             {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_ALBEDO]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
             {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_SHADOWMAP]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
-            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6, {}, {vulkanSamplers[SAMPLE_INDEX_SKYDOME], imagebuffers[IMAGE_INDEX_SKYDOME]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6, {}, {vulkanSamplers[SAMPLE_INDEX_SKYDOME], imagebuffers[IMAGE_INDEX_SKYDOME]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
             {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 7, {uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].range}, {}},
             {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 8, {uniformbuffers[UNIFORM_INDEX_CAMERA].buf, 0, uniformbuffers[UNIFORM_INDEX_CAMERA].range}, {}},
             {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 9, {uniformbuffers[UNIFORM_INDEX_LIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT].range}, {}},
@@ -610,7 +610,7 @@ void createdescriptorset()
 
     descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_SKYDOME], {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, {uniformbuffers[UNIFORM_INDEX_PROJECTION].buf, 0, uniformbuffers[UNIFORM_INDEX_PROJECTION].range}, {}},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_SKYDOME]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_SKYDOME]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
         });
 }
 
@@ -1084,14 +1084,11 @@ void setupbuffer()
     memPtr->create_depth_image(devicePtr, vulkanGraphicsQueue, vulkanDepthFormat, shadowmapSize, shadowmapSize, imagebuffers[IMAGE_INDEX_SHADOWMAP_DEPTH]);
 
     uint32_t miplevel;
-    //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Hamarikyu_Bridge_B/14-Hamarikyu_Bridge_B_3k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel);
-    //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Hamarikyu_Bridge_B/14-Hamarikyu_Bridge_B_Env.hdr", imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE], miplevel);
-    //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Arches_E_PineTree/Arches_E_PineTree_3k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel);
-    //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Arches_E_PineTree/Arches_E_PineTree_Env.hdr", imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE], miplevel);
-    memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Alexs_Apartment/Alexs_Apt_2k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel);
-    memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Alexs_Apartment/Alexs_Apt_Env.hdr", imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE], miplevel);
-    //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/HS-Cave-Room/Mt-Washington-Cave-Room_Ref.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel);
-    //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/HS-Cave-Room/Mt-Washington-Cave-Room_Env.hdr", imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE], miplevel);
+    //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Hamarikyu_Bridge_B/14-Hamarikyu_Bridge_B_3k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
+    //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Arches_E_PineTree/Arches_E_PineTree_3k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
+    memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Alexs_Apartment/Alexs_Apt_2k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
+    //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/HS-Cave-Room/Mt-Washington-Cave-Room_Ref.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
+    memPtr->generate_filteredtex(devicePtr, vulkanGraphicsQueue, vulkanComputeQueue, imagebuffers[IMAGE_INDEX_SKYDOME], imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE], vulkanSamplers[SAMPLE_INDEX_NORMAL]);
     memPtr->create_sampler(devicePtr, vulkanSamplers[SAMPLE_INDEX_SKYDOME], miplevel);
 
     {

@@ -1,0 +1,92 @@
+#version 460
+layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout (binding = 0, rgba32f) uniform image2D readTex;
+layout (binding = 1, rgba32f) uniform writeonly image2D outTex;
+
+const float PI = 3.1415926536;
+
+//assume writing tex is 400 x 200
+const int width = 400;
+const int height = 200;
+
+const float A[3] = {PI, 2 * PI / 3, PI / 4};
+const float deltathetaphi = 2 * PI * PI / (height * width);
+
+void main()
+{
+	vec2 readsize = imageSize(readTex);
+	vec2 scale = readsize / vec2(width, height);
+	
+	vec3 L[9];
+	
+	for(int i = 0; i < 9; ++i)
+	{
+		L[i] = vec3(0,0,0);
+	}
+		
+	for(int i = 0; i < width; ++i)
+	{
+		for(int j = 0; j < height; ++j)
+		{
+			ivec2 readPos = ivec2(i * scale.x, j * scale.y);
+
+			vec4 rgba = imageLoad(readTex, readPos);
+			
+			float theta = PI * (j + 0.5) / height;
+			float phi = 2 * PI * (i + 0.5) / width;
+			
+			float sintheta = sin(theta);
+			
+			float x = sintheta * cos(phi);
+			float y = sintheta * sin(phi);
+			float z = cos(theta);
+			
+			vec3 coefficient = rgba.xyz * sintheta * deltathetaphi;
+			
+			L[0] += coefficient * 0.5 * sqrt(1 / PI);
+			L[1] += coefficient * 0.5 * sqrt(3 / PI) * y;
+			L[2] += coefficient * 0.5 * sqrt(3 / PI) * z;
+			L[3] += coefficient * 0.5 * sqrt(3 / PI) * x;
+			L[4] += coefficient * 0.5 * sqrt(15 / PI) * x * y;
+			L[5] += coefficient * 0.5 * sqrt(15 / PI) * y * z;
+			L[6] += coefficient * 0.25 * sqrt(5 / PI) * (3 * z * z - 1);
+			L[7] += coefficient * 0.5 * sqrt(15 / PI) * x * z;
+			L[8] += coefficient * 0.25 * sqrt(15 / PI) * (x * x - y * y);
+		}
+	}
+	
+	vec3 E[9];
+	E[0] = L[0] * A[0];
+	E[1] = L[1] * A[1];
+	E[2] = L[2] * A[1];
+	E[3] = L[3] * A[1];
+	E[4] = L[4] * A[2];
+	E[5] = L[5] * A[2];
+	E[6] = L[6] * A[2];
+	E[7] = L[7] * A[2];
+	E[8] = L[8] * A[2];
+
+	float theta = PI * (gl_GlobalInvocationID.y) / height;
+	float phi = 2 * PI * (gl_GlobalInvocationID.x) / width;
+	
+	float sintheta = sin(theta);
+	
+	float x = sintheta * cos(phi);
+	float y = sintheta * sin(phi);
+	float z = cos(theta);
+	
+	vec3 result = vec3(0,0,0);
+	
+	result += E[0] * 0.5 * sqrt(1 / PI);
+	result += E[1] * 0.5 * sqrt(3 / PI) * y;
+	result += E[2] * 0.5 * sqrt(3 / PI) * z;
+	result += E[3] * 0.5 * sqrt(3 / PI) * x;
+	result += E[4] * 0.5 * sqrt(15 / PI) * x * y;
+	result += E[5] * 0.5 * sqrt(15 / PI) * y * z;
+	result += E[6] * 0.25 * sqrt(5 / PI) * (3 * z * z - 1);
+	result += E[7] * 0.5 * sqrt(15 / PI) * x * z;
+	result += E[8] * 0.25 * sqrt(15 / PI) * (x * x - y * y);
+	
+	imageStore(outTex, ivec2(gl_GlobalInvocationID.xy), vec4(result, 1.0));
+}

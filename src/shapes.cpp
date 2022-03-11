@@ -8,7 +8,7 @@ const float PI = 3.14159265358979f;
 
 helper::vertindex generateSphere()
 {
-    const int n = 16;
+    const int n = 64;
 
     helper::vertindex result;
     

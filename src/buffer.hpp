@@ -20,6 +20,9 @@ struct Image
     VkImageView imageView;
     VkFormat format;
     VkDeviceMemory memory;
+
+    uint32_t width;
+    uint32_t height;
 };
 
 struct VertexBuffer
@@ -52,8 +55,11 @@ public:
     void free_buffer(VkDevice device, Buffer& buf);
     void free_image(VkDevice device, Image*& img);
 
-    bool load_texture_image(device* devicePtr, VkQueue graphicsqueue, std::string filepath, Image*& image, uint32_t& miplevel);
-    void generate_mipmap(device* devicePtr, VkQueue graphicsqueue, VkFormat imageFormat, VkImage& image, uint32_t width, uint32_t height, uint32_t mipmap);
+    bool load_texture_image(device* devicePtr, VkQueue graphicsqueue, std::string filepath, Image*& image, uint32_t& miplevel, VkImageLayout imagelayout);
+    void generate_mipmap(device* devicePtr, VkQueue graphicsqueue, VkFormat imageFormat, VkImage& image, uint32_t width, uint32_t height, uint32_t mipmap, VkImageLayout imagelayout);
+    void generate_filteredtex(device* devicePtr, VkQueue graphicsqueue, VkQueue computequeue, Image*& src, Image*& target, VkSampler sampler);
+
+    void setimagebarriermask(VkImageMemoryBarrier& imageMemoryBarrier, VkImageLayout oldImageLayout, VkImageLayout newImageLayout);
 
     bool create_sampler(device* devicePtr, VkSampler& sampler, uint32_t miplevel);
 };

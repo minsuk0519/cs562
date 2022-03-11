@@ -50,7 +50,7 @@ bool gui::init(VkInstance instance, VkQueue graphicsqueue, uint32_t imagecount, 
 
     ImGui_ImplVulkan_CreateFontsTexture(commandBuffer);
 
-    devicePtr->end_commandbuffer_submit(graphicsqueue, commandBuffer);
+    devicePtr->end_commandbuffer_submit(graphicsqueue, commandBuffer, false);
 
     ImGui_ImplVulkan_DestroyFontUploadObjects();
 
