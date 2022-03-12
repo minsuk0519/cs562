@@ -1,0 +1,47 @@
+[Header]
+ICOfile = "Theatre-Side_Thumb.jpg"
+PREVIEWfile = "Theatre-Side_preview.jpg"
+Name = "Theatre Seating"
+Author = "Blochi"
+Location = "Hollywood"
+Comment = "Inside the Mans Chinese, lots and lots of red seats, extra Keylight"
+GEOlat = 34.10203281869608
+GEOlong = -118.34095001220703
+Link = "http://www.hdrlabs.com/sibl/archive.html"
+Date = "2007:03:12"
+Time = "08:35:00"
+Height = 1.55
+
+[Background]
+; heavily tonemapped, maybe too much
+BGfile = "Theatre-Side_8k_TMap.jpg"
+BGmap = 1
+BGu = 0.000000
+BGv = 0.000000
+BGheight = 4000
+
+[Enviroment]
+EVfile = "Theatre-Side_Env.hdr"
+EVmap = 1
+EVu = 0.000000
+EVv = 0.000000
+EVheight = 180
+EVmulti = 1.500000
+EVgamma = 1.500000
+
+[Reflection]
+REFfile = "Theatre-Side_2k.hdr"
+REFmap = 1
+REFu = 0.000000
+REFv = 0.000000
+REFheight = 1024
+REFmulti = 1.500000
+REFgamma = 1.500000
+
+[Light1]
+LIGHTname = "Chandelier"
+LIGHTcolor = 255,162,73
+LIGHTmulti = 0.500000
+LIGHTu = 0.414000
+LIGHTv = 0.280000
+

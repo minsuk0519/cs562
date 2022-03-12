@@ -1,0 +1,36 @@
+[Header]
+ICOfile = "NatureLabFront_IBL_Thumb.jpg"
+Name = "Nature Lab"
+Author = "Alex Hart"
+Location = "Providence, RI"
+Comment = "RISD Nature Lab"
+GEOlat = 41.827029
+GEOlong = -71.407968
+Link = "http://eahart.com"
+Height = 1.7
+
+[Background]
+BGfile = "NatureLabFront_IBL_Bg.jpg"
+BGmap = 1
+BGu = 0.000000
+BGv = 0.000000
+BGheight = 4000
+
+[Enviroment]
+EVfile = "NatureLabFront_IBL_Env.hdr"
+EVmap = 1
+EVu = 0.000000
+EVv = 0.000000
+EVheight = 180
+EVmulti = 1.000000
+EVgamma = 1.578947
+
+[Reflection]
+REFfile = "NatureLabFront_IBL_Ref.hdr"
+REFmap = 1
+REFu = 0.000000
+REFv = 0.000000
+REFheight = 1024
+REFmulti = 1.000000
+REFgamma = 1.000000
+

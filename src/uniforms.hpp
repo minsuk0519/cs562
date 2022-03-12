@@ -34,7 +34,7 @@ struct lightSetting
 {
 	outputMode outputTex;
 	bool shadowenable = true;
-	float gamma = 2.2f;
+	float gamma = 1.0f;
 	float exposure = 1.0f;
 	bool highdynamicrange = true;
 };

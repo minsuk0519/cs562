@@ -155,3 +155,8 @@ vec3 calcLight(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 albedo, vec3 light
 	return (kD * albedo / PI + specular) * NdotL * lightColor;// * radiance;
 }
 
+vec3 tone_mapping(vec3 C, lightsetting setting)
+{
+	vec3 eC = setting.exposure * C;
+	return mix(C, pow(eC / (eC + vec3(1.0)), vec3(setting.gamma / 2.2)), setting.highdynamicrange);
+}

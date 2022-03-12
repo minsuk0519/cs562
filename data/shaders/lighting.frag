@@ -81,8 +81,10 @@ vec3 calcImageBasedLight(vec3 viewDir, vec3 normal, float roughness, float metal
 		float lod = level - 0.5 * log2(DH);
 		if(DH <= 0) lod = 0;
 		
-		vec3 specular = textureLod(environmentTex, SphericalToEquirectangular(wk), lod).xyz * cos(theta);
-		//vec3 specular = texture(environmentTex, SphericalToEquirectangular(wk)).xyz * cos(theta);
+		vec3 environmentValue = textureLod(environmentTex, SphericalToEquirectangular(wk), lod).xyz;
+		//vec3 environmentValue = texture(environmentTex, SphericalToEquirectangular(wk)).xyz;
+				    
+		vec3 specular = environmentValue * cos(theta);
 		
 		float denom = 4 * wkdotN * NdotV;
 		vec3 FG = (calGeometry(NdotV, wkdotN, roughness) * calFresnel(NdotV, F0));
@@ -95,7 +97,9 @@ vec3 calcImageBasedLight(vec3 viewDir, vec3 normal, float roughness, float metal
 	vec3 kD = vec3(1.0) - kS;
 	kD *= 1.0 - metal;
 		
-	return specularcolor + kD * albedo * (4 / PI) * texture(irradianceTex, SphericalToEquirectangular(normal)).xyz;
+	vec3 irradiance = texture(irradianceTex, SphericalToEquirectangular(normal)).xyz;
+				
+	return specularcolor + kD * albedo * (4 / PI) * irradiance;
 }
 
 void main()
@@ -171,8 +175,7 @@ void main()
 	
 	resultColor += calcImageBasedLight(viewDir, normal, roughness, metal, albedo, F0);
 	
-	vec3 eC = setting.exposure * resultColor;
-	resultColor = mix(resultColor, pow(eC / (eC + vec3(1.0)), vec3(1.0 / setting.gamma)), setting.highdynamicrange);
+	resultColor = tone_mapping(resultColor, setting);
     
 	outColor = vec4(resultColor, 1.0);
 }
