@@ -16,6 +16,7 @@ struct ObjectProperties
 	glm::vec3 albedoColor = glm::vec3(1.0f, 1.0f, 1.0f);;
 	float roughness = 0.02f;
 	float metallic = 0.5f;
+	float refractiveindex = 1.0f;
 };
 
 enum outputMode

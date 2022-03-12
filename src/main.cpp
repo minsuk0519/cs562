@@ -85,8 +85,11 @@ constexpr uint32_t shadowmapSize = 2048;
 VkFormat shadowmapFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
 
 std::vector<object*> objects;
-glm::vec3 camerapos = glm::vec3(0.0f, 2.0f, 5.0f);
-glm::quat rotation = glm::quat(glm::vec3(glm::radians(0.0f), 0, 0));
+//glm::vec3 camerapos = glm::vec3(0.0f, 2.0f, 5.0f);
+//glm::quat rotation = glm::quat(glm::vec3(glm::radians(0.0f), 0, 0));
+
+glm::vec3 camerapos = glm::vec3(-0.00123167, 5.61389, 2.09556);
+glm::quat rotation = glm::quat(glm::vec3(3.08159, 0.031594, 3.14159));
 
 light sun;
 std::vector<light> local_light;
@@ -936,6 +939,7 @@ void updatebuffer()
         obj->prop->albedoColor = objproperties.albedoColor;
         obj->prop->metallic = objproperties.metallic;
         obj->prop->roughness = objproperties.roughness;
+        obj->prop->refractiveindex = objproperties.refractiveindex;
     }
 
     objects[0]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(3.75f, -0.56f, -10.0f)) * glm::rotate(glm::mat4(1.0f), a, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(20.0f));
@@ -1091,10 +1095,15 @@ void setupbuffer()
     //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Alexs_Apartment/Alexs_Apt_2k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
     //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/HS-Cave-Room/Mt-Washington-Cave-Room_Ref.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
     //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Chelsea_Stairs/Chelsea_Stairs_3k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
-    //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/NatureLab/NatureLabFront_IBL_Ref.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
+    //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/snow_machine/test8_Ref.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
     //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Popcorn_Lobby/Lobby-Center_2k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
-    memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/QueenMary_Chimney/QueenMary_Chimney_Ref.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
+    //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/QueenMary_Chimney/QueenMary_Chimney_Ref.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
     //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Theatre_Seating/Theatre-Side_2k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
+    //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/NatureLab/NatureLabFront_IBL_Ref.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
+    //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Milkyway/Milkyway_small.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
+    //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Winter_Forest/WinterForest_Ref.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
+    //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Wooden_Door/WoodenDoor_Ref.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
+    memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Footprint_Court/Footprint_Court_2k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
     
     memPtr->generate_filteredtex(devicePtr, vulkanGraphicsQueue, vulkanComputeQueue, imagebuffers[IMAGE_INDEX_SKYDOME], imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE], vulkanSamplers[SAMPLE_INDEX_NORMAL]);
     memPtr->create_sampler(devicePtr, vulkanSamplers[SAMPLE_INDEX_SKYDOME], miplevel);
@@ -1422,6 +1431,7 @@ int main(void)
                     ImGui::ColorPicker3("Albedo", &objproperties.albedoColor.x);
                     ImGui::DragFloat("Roughness", &objproperties.roughness, 0.001f, 0.0f, 1.0f);
                     ImGui::DragFloat("Metallic", &objproperties.metallic, 0.001f, 0.0f, 1.0f);
+                    ImGui::DragFloat("RefractiveIndex", &objproperties.refractiveindex, 0.005f, 1.0f, 5.0f);
 
                     ImGui::EndMenu();
                 }

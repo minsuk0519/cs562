@@ -99,7 +99,7 @@ vec3 calcImageBasedLight(vec3 viewDir, vec3 normal, float roughness, float metal
 		
 	vec3 irradiance = texture(irradianceTex, SphericalToEquirectangular(normal)).xyz;
 				
-	return specularcolor + kD * albedo * (4 / PI) * irradiance;
+	return specularcolor + kD * albedo * (1 / PI) * irradiance;
 }
 
 void main()
@@ -156,11 +156,12 @@ void main()
 	
 	float metal = texTexData.w;
 	vec3 albedo = texture(albedoTex, outTexcoord).xyz;
+	float refractiveindex = texture(albedoTex, outTexcoord).w;
 	albedo = mix(albedo, pow(albedo, vec3(2.2)), setting.highdynamicrange);
 	
 	vec3 viewDir = normalize(cam.position - position);
 	
-	vec3 F0 = (setting.highdynamicrange == 1) ? vec3(0.04) : vec3(0.232);
+	vec3 F0 = vec3(pow((1 - refractiveindex) / (1 + refractiveindex), 2));
 	
     F0 = mix(F0, albedo, metal);
 	

@@ -15,6 +15,7 @@ layout(binding = 1) uniform Object
 	vec3 albedo;
 	float roughness;
 	float metal;
+	float refractiveindex;
 } obj;
 
 void main()
@@ -22,5 +23,5 @@ void main()
    posColor = vec4(outPosition, 1.0);
    normalColor = vec4(outNormal, 1.0);
    texColor = vec4(outTexcoord, obj.roughness, obj.metal);
-   albedoColor = vec4(obj.albedo, 1.0);
+   albedoColor = vec4(obj.albedo, obj.refractiveindex);
 }
