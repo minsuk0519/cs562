@@ -186,7 +186,7 @@ void main()
 	
 	
 	
-	int n = 18;
+	int n = 10;
 	float R = 1.5;
 	
 	ivec2 fragcoord = ivec2(int(gl_FragCoord.x), int(gl_FragCoord.y));
@@ -208,7 +208,7 @@ void main()
 		float phi = (30 * fragcoord.x) ^ fragcoord.y + (10 * fragcoord.x) ^ fragcoord.y;
 		float theta = 2 * PI * alpha * (7.0 * n / 9.0) + phi;
 		
-		vec3 Pi = texture(posTex, texCoord + h * vec2(cos(theta), sin(theta))).xyz;
+		vec3 Pi = texture(posTex, texcoord + h * vec2(cos(theta), sin(theta))).xyz;
 
 		vec3 wi = Pi - P;
 		
