@@ -85,11 +85,11 @@ constexpr uint32_t shadowmapSize = 2048;
 VkFormat shadowmapFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
 
 std::vector<object*> objects;
-//glm::vec3 camerapos = glm::vec3(0.0f, 2.0f, 5.0f);
-//glm::quat rotation = glm::quat(glm::vec3(glm::radians(0.0f), 0, 0));
+glm::vec3 camerapos = glm::vec3(0.0f, 2.0f, 5.0f);
+glm::quat rotation = glm::quat(glm::vec3(glm::radians(0.0f), 0, 0));
 
-glm::vec3 camerapos = glm::vec3(-0.00123167, 5.61389, 2.09556);
-glm::quat rotation = glm::quat(glm::vec3(3.08159, 0.031594, 3.14159));
+//glm::vec3 camerapos = glm::vec3(-0.00123167, 5.61389, 2.09556);
+//glm::quat rotation = glm::quat(glm::vec3(3.08159, 0.031594, 3.14159));
 
 light sun;
 std::vector<light> local_light;
@@ -1018,6 +1018,8 @@ void updatebuffer()
 
     camera cam;
     cam.position = camerapos;
+    cam.width = windowPtr->windowWidth;
+    cam.height = windowPtr->windowHeight;
 
     void* data3;
     vkMapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_CAMERA].memory, 0, uniformbuffers[UNIFORM_INDEX_CAMERA].size, 0, &data3);

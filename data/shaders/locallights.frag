@@ -12,6 +12,9 @@ layout(binding = 4) uniform sampler2D albedoTex;
 layout(binding = 5) uniform camera
 {
 	vec3 position;
+	
+	int width;
+	int height;
 } cam;
 
 
@@ -28,7 +31,7 @@ void main()
 		return;
 	}
 
-	vec2 outTexcoord = gl_FragCoord.xy / vec2(1200, 800);
+	vec2 outTexcoord = gl_FragCoord.xy / vec2(cam.width, cam.height);
 
 	vec3 position = texture(posTex, outTexcoord).xyz;
 	vec3 normal = (texture(normTex, outTexcoord).xyz);

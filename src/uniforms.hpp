@@ -43,6 +43,9 @@ struct lightSetting
 struct camera
 {
 	glm::vec3 position;
+
+	unsigned int width;
+	unsigned int height;
 };
 
 constexpr int MAX_LIGHT = 16;
