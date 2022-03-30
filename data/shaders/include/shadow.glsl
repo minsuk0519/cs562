@@ -1,3 +1,8 @@
+#ifndef _SHADOW_GLSL_
+#define _SHADOW_GLSL_
+
+#include "constant.glsl"
+
 struct shadowSetting
 {
 	mat4 viewMat;
@@ -144,3 +149,5 @@ float calcShadow(shadowSetting shadow, vec3 position, sampler2D depthTex)
 	
 	return result;
 }
+
+#endif

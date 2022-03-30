@@ -1,3 +1,8 @@
+#ifndef _LIGHT_GLSL_
+#define _LIGHT_GLSL_
+
+#include "constant.glsl"
+
 struct lightsetting
 {
 	int outputTex;
@@ -21,9 +26,6 @@ struct hammersley
 	int num;
 	vec2 pos[100];
 };
-
-const float PI = 3.14159265358979;
-const float e = 2.718281828459045;
 
 float calNormalDistribution_Phong(float NdotH, float roughness)
 {
@@ -160,3 +162,5 @@ vec3 tone_mapping(vec3 C, lightsetting setting)
 	vec3 eC = setting.exposure * C;
 	return mix(C, pow(eC / (eC + vec3(1.0)), vec3(setting.gamma / 2.2)), setting.highdynamicrange);
 }
+
+#endif

@@ -14,13 +14,14 @@ layout(binding = 3) uniform sampler2D albedoTex;
 layout(binding = 4) uniform sampler2D depthTex;
 layout(binding = 5) uniform sampler2D irradianceTex;
 layout(binding = 6) uniform sampler2D environmentTex;
+layout(binding = 7) uniform sampler2D aoTex;
 
-layout(binding = 7) uniform lightSetting
+layout(binding = 8) uniform lightSetting
 {
 	lightsetting setting;
 };
 
-layout(binding = 8) uniform camera
+layout(binding = 9) uniform camera
 {
 	vec3 position;
 	
@@ -28,22 +29,22 @@ layout(binding = 8) uniform camera
 	int height;
 } cam;
 
-layout(binding = 9) uniform Sun
+layout(binding = 10) uniform Sun
 {
 	light sun;
 };
 
-layout(binding = 10) uniform shadowsetting 
+layout(binding = 11) uniform shadowsetting 
 {
 	shadowSetting shadow;
 };
 
-layout(binding = 11) uniform low_discrepancy
+layout(binding = 12) uniform low_discrepancy
 {
 	hammersley random;
 };
 
-vec3 calcImageBasedLight(vec3 viewDir, vec3 normal, float roughness, float metal, vec3 albedo, vec3 F0)
+vec3 calcImageBasedLight(vec3 viewDir, vec3 normal, float roughness, float metal, vec3 albedo, vec3 F0, float ao)
 {
 	vec3 R = 2 * dot(normal, viewDir) * normal - viewDir;
 	vec3 A = normalize(vec3(R.z, 0, -R.x));
@@ -102,7 +103,7 @@ vec3 calcImageBasedLight(vec3 viewDir, vec3 normal, float roughness, float metal
 		
 	vec3 irradiance = texture(irradianceTex, SphericalToEquirectangular(normal)).xyz;
 				
-	return specularcolor + kD * albedo * (1 / PI) * irradiance;
+	return specularcolor + kD * albedo * (1 / PI) * irradiance * ao;
 }
 
 void main()
@@ -161,6 +162,7 @@ void main()
 	vec3 albedo = texture(albedoTex, outTexcoord).xyz;
 	float refractiveindex = texture(albedoTex, outTexcoord).w;
 	albedo = mix(albedo, pow(albedo, vec3(2.2)), setting.highdynamicrange);
+	float ao = texture(aoTex, outTexcoord).x;
 	
 	vec3 viewDir = normalize(cam.position - position);
 	
@@ -177,50 +179,9 @@ void main()
 	float shadow = mix(0.0, calcShadow(shadow, position, depthTex), setting.shadowenable);
 	resultColor *= (1.0 - shadow);
 	
-	resultColor += calcImageBasedLight(viewDir, normal, roughness, metal, albedo, F0);
+	resultColor += calcImageBasedLight(viewDir, normal, roughness, metal, albedo, F0, ao);
 	
 	resultColor = tone_mapping(resultColor, setting);
     
 	outColor = vec4(resultColor, 1.0);
-	
-	
-	
-	
-	int n = 10;
-	float R = 1.5;
-	
-	ivec2 fragcoord = ivec2(int(gl_FragCoord.x), int(gl_FragCoord.y));
-	vec2 texcoord = gl_FragCoord.xy / vec2(cam.width, cam.height);
-	
-	vec3 P = texture(posTex, texcoord).xyz;
-	vec3 N = texture(normTex, texcoord).xyz;
-	
-	vec3 diff = position - cam.position;
-	float d = length(diff);
-	
-	float c = 0.1 * R;
-	
-	float value = 0;
-	for(int i = 0; i < n; ++i)
-	{
-		float alpha = (i + 0.5) / n;
-		float h = alpha * R / d;
-		float phi = (30 * fragcoord.x) ^ fragcoord.y + (10 * fragcoord.x) ^ fragcoord.y;
-		float theta = 2 * PI * alpha * (7.0 * n / 9.0) + phi;
-		
-		vec3 Pi = texture(posTex, texcoord + h * vec2(cos(theta), sin(theta))).xyz;
-
-		vec3 wi = Pi - P;
-		
-		diff = Pi - cam.position;
-		float di = length(diff);
-		
-		float heaviside = ((R - length(wi)) < 0) ? 0 : 1;
-		value += max(0, dot(N, wi) - 0.001 * di) * heaviside / max(c * c, dot(wi, wi));
-	}
-	
-	float S = ((2 * PI * c) / n) * value;
-	float A = max(0, (1 - S));
-	
-	outColor = vec4(vec3(A), 1.0);
 }

@@ -115,6 +115,29 @@ struct HammersleyBlock
 	}
 };
 
+struct GaussianWeight
+{
+	int w;
+	float weight[101];
+	void build(int n)
+	{
+		w = n;
+
+		float sumWeight = 0.0f;
+
+		for(int i = -w; i <= w; ++i)
+		{
+			weight[i + w] = std::exp(-(2 * i * i) / (w * w));
+			sumWeight += weight[i + w];
+		}
+
+		for(int i = -w; i <= w; ++i)
+		{
+			weight[i + w] /= sumWeight;
+		}
+	}
+};
+
 enum UNIFORM_INDEX
 {
 	UNIFORM_INDEX_PROJECTION = 0,
@@ -126,6 +149,7 @@ enum UNIFORM_INDEX
 	UNIFORM_INDEX_SKYDOME,
 	UNIFORM_INDEX_SKYDOME_IRRADIANCE,
 	UNIFORM_INDEX_HAMMERSLEYBLOCK,
+	UNIFORM_INDEX_GAUSSIANWEIGHT,
 	UNIFORM_INDEX_MAX,
 };
 
@@ -139,6 +163,7 @@ enum VERTEX_INDEX
 	VERTEX_INDEX_BOX,
 	VERTEX_INDEX_BOX_POSONLY,
 	VERTEX_INDEX_FULLSCREENQUAD,
+	VERTEX_INDEX_QUAD_POSONLY,
 	VERTEX_INDEX_MAX,
 };
 
@@ -149,6 +174,8 @@ enum IMAGE_INDEX
 	IMAGE_INDEX_GBUFFER_NORM,
 	IMAGE_INDEX_GBUFFER_TEX,
 	IMAGE_INDEX_GBUFFER_ALBEDO,
+	IMAGE_INDEX_AO,
+	IMAGE_INDEX_AO_BLUR,
 	IMAGE_INDEX_SHADOWMAP,
 	IMAGE_INDEX_SHADOWMAP_BLUR,
 	IMAGE_INDEX_SHADOWMAP_DEPTH,
