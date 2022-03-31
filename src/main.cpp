@@ -2071,7 +2071,7 @@ int main(void)
                 vkCmdBindDescriptorSets(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_VERTICAL], VK_PIPELINE_BIND_POINT_COMPUTE, vulkanPipelineLayouts[render::PIPELINE_AO_BLUR_VERTICAL], 0, 1,
                     &vulkanDescriptorSets[render::DESCRIPTOR_AO_BLUR], 0, 0);
 
-                vkCmdDispatch(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_VERTICAL], windowPtr->windowWidth, windowPtr->windowHeight, 1);
+                vkCmdDispatch(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_VERTICAL], windowPtr->windowWidth / 120, windowPtr->windowHeight, 1);
 
                 vkEndCommandBuffer(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_VERTICAL]);
 
@@ -2114,7 +2114,7 @@ int main(void)
                 vkCmdBindDescriptorSets(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_HORIZONTAL], VK_PIPELINE_BIND_POINT_COMPUTE, vulkanPipelineLayouts[render::PIPELINE_AO_BLUR_HORIZONTAL], 0, 1,
                     &vulkanDescriptorSets[render::DESCRIPTOR_AO_BLUR], 0, 0);
 
-                vkCmdDispatch(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_HORIZONTAL], windowPtr->windowWidth, windowPtr->windowHeight, 1);
+                vkCmdDispatch(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_HORIZONTAL], windowPtr->windowWidth, windowPtr->windowHeight / 100, 1);
 
                 vkEndCommandBuffer(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_HORIZONTAL]);
 

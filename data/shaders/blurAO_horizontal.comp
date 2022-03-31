@@ -2,7 +2,7 @@
 
 #include "include/constant.glsl"
 
-layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout (local_size_x = 1, local_size_y = 100, local_size_z = 1) in;
 layout (binding = 0, r32f) uniform readonly image2D blurTarget;
 layout (binding = 1, r32f) uniform writeonly image2D blurOutput;
 
@@ -23,7 +23,11 @@ layout(binding = 5) uniform Weight
 	float weight[101];
 };
 
-shared vec4 v[128 + 101];
+const int ysize = 100;
+
+shared vec4 v[ysize + 101];
+shared float d[ysize + 101];
+shared vec3 n[ysize + 101];
 
 void main()
 {
@@ -32,22 +36,29 @@ void main()
 	ivec2 gpos = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
 	uint threadid = gl_LocalInvocationID.y;
 	
-	//v[threadid] = imageLoad(blurTarget, gpos + ivec2(0, -w));
-	//if(threadid <= 2 * w) v[threadid + 128] = imageLoad(blurTarget, gpos + ivec2(0, 128-w));
-	//
-    //barrier();
-	//
-	//for(int i = 0; i <= 2*w; ++i)
-	//{
-	//	rgba += v[threadid + i] * weight[i];
-	//}
+	ivec2 fragcoord = gpos + ivec2(0, -w);
 	
-	vec2 texcoord = gpos / vec2(cam.width, cam.height);
-	
-	vec3 P = texture(posTex, texcoord).xyz;
+	v[threadid] = imageLoad(blurTarget, fragcoord);
+	vec3 P = texelFetch(posTex, fragcoord, 0).xyz;
 	vec3 diff = P - cam.position;
-	float d = length(diff);
-	vec3 N = texture(normTex, texcoord).xyz;
+	d[threadid] = length(diff);
+	n[threadid] = texelFetch(normTex, fragcoord, 0).xyz;
+	
+	if(threadid <= 2 * w)
+	{
+		fragcoord = gpos + ivec2(0, ysize-w);
+		v[threadid + ysize] = imageLoad(blurTarget, fragcoord);
+		
+		P = texelFetch(posTex, fragcoord, 0).xyz;
+		diff = P - cam.position;
+		d[threadid + ysize] = length(diff);
+		n[threadid + ysize] = texelFetch(normTex, fragcoord, 0).xyz;
+	}
+	
+    barrier();
+		
+	float distance = d[threadid];
+	vec3 N = n[threadid];
 	
 	float s = 0.01;
 	
@@ -55,21 +66,17 @@ void main()
 	
 	for(int i = 0; i <= 2*w; ++i)
 	{
-		ivec2 fragcoord = gpos + ivec2(0, -w + i);
-		texcoord = fragcoord / vec2(cam.width, cam.height);
-			
-		vec3 Pi = texture(posTex, texcoord).xyz;
-		diff = Pi - cam.position;
-		float di = length(diff);
-		vec3 Ni = texture(normTex, texcoord).xyz;
+		float di = d[i + threadid];
+		vec3 Ni = n[i + threadid];
 		
-		float R = max(0.0, dot(N, Ni)) * exp(-pow(di - d, 2) / (2 * s)) / sqrt(2 * PI * s);
+		float R = max(0.0, dot(N, Ni)) * exp(-pow(di - distance, 2) / (2 * s)) / sqrt(2 * PI * s);
 		
 		float W = weight[i] * R;
 		
 		Wsum += W;
-		rgba += imageLoad(blurTarget, fragcoord) * W;
+		rgba += v[i + threadid] * W;
 	}
+	
 	if(Wsum >= 0.0000001) rgba /= Wsum;
 			
 	imageStore(blurOutput, gpos, rgba);
