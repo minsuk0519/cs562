@@ -1,0 +1,76 @@
+#version 460
+
+#include "include/constant.glsl"
+
+layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout (binding = 0, r32f) uniform readonly image2D blurTarget;
+layout (binding = 1, r32f) uniform writeonly image2D blurOutput;
+
+layout(binding = 2) uniform sampler2D posTex;
+layout(binding = 3) uniform sampler2D normTex;
+
+layout(binding = 4) uniform camera
+{
+	vec3 position;
+	
+	int width;
+	int height;
+} cam;
+
+layout(binding = 5) uniform Weight
+{
+	int w;
+	float weight[101];
+};
+
+shared vec4 v[128 + 101];
+
+void main()
+{
+	vec4 rgba = vec4(0,0,0,0);
+
+	ivec2 gpos = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+	uint threadid = gl_LocalInvocationID.y;
+	
+	//v[threadid] = imageLoad(blurTarget, gpos + ivec2(0, -w));
+	//if(threadid <= 2 * w) v[threadid + 128] = imageLoad(blurTarget, gpos + ivec2(0, 128-w));
+	//
+    //barrier();
+	//
+	//for(int i = 0; i <= 2*w; ++i)
+	//{
+	//	rgba += v[threadid + i] * weight[i];
+	//}
+	
+	vec2 texcoord = gpos / vec2(cam.width, cam.height);
+	
+	vec3 P = texture(posTex, texcoord).xyz;
+	vec3 diff = P - cam.position;
+	float d = length(diff);
+	vec3 N = texture(normTex, texcoord).xyz;
+	
+	float s = 0.01;
+	
+	float Wsum = 0.0;
+	
+	for(int i = 0; i <= 2*w; ++i)
+	{
+		ivec2 fragcoord = gpos + ivec2(-w + i, 0);
+		texcoord = fragcoord / vec2(cam.width, cam.height);
+			
+		vec3 Pi = texture(posTex, texcoord).xyz;
+		diff = Pi - cam.position;
+		float di = length(diff);
+		vec3 Ni = texture(normTex, texcoord).xyz;
+		
+		float R = max(0.0, dot(N, Ni)) * exp(-pow(di - d, 2) / (2 * s)) / sqrt(2 * PI * s);
+		
+		float W = weight[i] * R;
+		
+		Wsum += W;
+		rgba += imageLoad(blurTarget, fragcoord) * W;
+	}
+	if(Wsum >= 0.0000001) rgba /= Wsum;
+			
+	imageStore(blurOutput, gpos, rgba);
+}

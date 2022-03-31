@@ -115,6 +115,14 @@ struct HammersleyBlock
 	}
 };
 
+struct aoConstant
+{
+	float s = 1.0f;
+	float k = 1.0f;
+	float R = 1.5f;
+	int n = 10;
+};
+
 struct GaussianWeight
 {
 	int w;
@@ -127,7 +135,7 @@ struct GaussianWeight
 
 		for(int i = -w; i <= w; ++i)
 		{
-			weight[i + w] = std::exp(-(2 * i * i) / (w * w));
+			weight[i + w] = static_cast<float>(std::exp(-(2 * i * i) / (w * w)));
 			sumWeight += weight[i + w];
 		}
 
@@ -150,6 +158,7 @@ enum UNIFORM_INDEX
 	UNIFORM_INDEX_SKYDOME_IRRADIANCE,
 	UNIFORM_INDEX_HAMMERSLEYBLOCK,
 	UNIFORM_INDEX_GAUSSIANWEIGHT,
+	UNIFORM_INDEX_AO_CONSTANT,
 	UNIFORM_INDEX_MAX,
 };
 

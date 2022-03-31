@@ -15,11 +15,16 @@ layout(binding = 2) uniform camera
 	int height;
 } cam;
 
+layout(binding = 3) uniform aoConstant
+{
+	float s;
+	float k;
+	float R;
+	int n;
+} ao;
+
 void main()
 {
-	int n = 10;
-	float R = 1.5;
-	
 	ivec2 fragcoord = ivec2(int(gl_FragCoord.x), int(gl_FragCoord.y));
 	vec2 texcoord = gl_FragCoord.xy / vec2(cam.width, cam.height);
 	
@@ -29,15 +34,15 @@ void main()
 	vec3 diff = P - cam.position;
 	float d = length(diff);
 	
-	float c = 0.1 * R;
+	float c = 0.1 * ao.R;
 	
 	float value = 0;
-	for(int i = 0; i < n; ++i)
+	for(int i = 0; i < ao.n; ++i)
 	{
-		float alpha = (i + 0.5) / n;
-		float h = alpha * R / d;
+		float alpha = (i + 0.5) / ao.n;
+		float h = alpha * ao.R / d;
 		float phi = (30 * fragcoord.x) ^ fragcoord.y + (10 * fragcoord.x) ^ fragcoord.y;
-		float theta = 2 * PI * alpha * (7.0 * n / 9.0) + phi;
+		float theta = 2 * PI * alpha * (7.0 * ao.n / 9.0) + phi;
 		
 		vec3 Pi = texture(posTex, texcoord + h * vec2(cos(theta), sin(theta))).xyz;
 	
@@ -46,12 +51,12 @@ void main()
 		diff = Pi - cam.position;
 		float di = length(diff);
 		
-		float heaviside = ((R - length(wi)) < 0) ? 0 : 1;
+		float heaviside = ((ao.R - length(wi)) < 0) ? 0 : 1;
 		value += max(0, dot(N, wi) - 0.001 * di) * heaviside / max(c * c, dot(wi, wi));
 	}
 	
-	float S = ((2 * PI * c) / n) * value;
-	float A = max(0, (1 - S));
+	float S = ((2 * PI * c) / ao.n) * value;
+	float A = max(0, pow((1 - ao.s * S), ao.k));
 	
 	outColor = A;
 }

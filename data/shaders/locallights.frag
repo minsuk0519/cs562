@@ -70,7 +70,7 @@ void main()
 	const float slope = 10;
 	float attenuation = (square_radius - square_light_distance) / (slope * square_light_distance + square_radius);
 	
-	resultColor += calcLight(lightDir, viewDir, normal, albedo, lit.color, roughness, metal, F0) * attenuation;
+	resultColor += calcLight(lightDir, viewDir, normal, albedo, lit.color, roughness, metal, F0, 1.0) * attenuation;
 		
 	outColor = vec4(resultColor, 1.0);
 }

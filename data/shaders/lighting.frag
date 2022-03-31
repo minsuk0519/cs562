@@ -174,7 +174,7 @@ void main()
 	
 	vec3 lightDir = normalize(-sun.direction);
 	
-	resultColor += calcLight(lightDir, viewDir, normal, albedo, sun.color, roughness, metal, F0);
+	resultColor += calcLight(lightDir, viewDir, normal, albedo, sun.color, roughness, metal, F0, ao);
 	resultColor = max(resultColor, 0.0);
 	float shadow = mix(0.0, calcShadow(shadow, position, depthTex), setting.shadowenable);
 	resultColor *= (1.0 - shadow);

@@ -130,7 +130,7 @@ vec3 EquirectangularToSpherical(vec2 uv)
 	return v;
 }
 
-vec3 calcLight(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 albedo, vec3 lightColor, float roughness, float metal, vec3 F0)
+vec3 calcLight(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 albedo, vec3 lightColor, float roughness, float metal, vec3 F0, float ao)
 {
 	//vec3 lightpos = lit.lights[i].position;
 	//vec3 lightDir = (lightpos - position);
@@ -154,7 +154,7 @@ vec3 calcLight(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 albedo, vec3 light
 	vec3 kD = vec3(1.0) - kS;
 	kD *= 1.0 - metal;
 
-	return (kD * albedo / PI + specular) * NdotL * lightColor;// * radiance;
+	return (ao * kD * albedo / PI + specular) * NdotL * lightColor;// * radiance;
 }
 
 vec3 tone_mapping(vec3 C, lightsetting setting)
