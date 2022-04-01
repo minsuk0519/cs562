@@ -1794,6 +1794,28 @@ int main(void)
             }
         }
 
+        //submit all commandbuffers
+        {
+            std::array<VkCommandBuffer, 2> submitcommandbuffers = { vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], vulkanCommandBuffers[render::COMMANDBUFFER_SHADOWMAP] };
+
+            VkSubmitInfo submitInfo{};
+            submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+            VkPipelineStageFlags pipelinestageFlag = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            std::array<VkPipelineStageFlags, 1> pipelinestageFlags = { pipelinestageFlag };
+            submitInfo.pWaitDstStageMask = &pipelinestageFlag;
+            submitInfo.waitSemaphoreCount = 0;
+            submitInfo.pWaitSemaphores = 0;
+            submitInfo.signalSemaphoreCount = 1;
+            submitInfo.pSignalSemaphores = &vulkanSemaphores[render::SEMAPHORE_GBUFFER];
+            submitInfo.commandBufferCount = 1;
+            submitInfo.pCommandBuffers = &vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER];
+            if (vkQueueSubmit(vulkanGraphicsQueues[render::GRAPHICQUEUE_GBUFFER], 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
+            {
+                std::cout << "failed to submit queue" << std::endl;
+                return -1;
+            }
+        }
+
         //shadowmap pass
         {
             VkCommandBufferBeginInfo commandBufferBeginInfo{};
@@ -1844,27 +1866,6 @@ int main(void)
             }
         }
 
-        //submit all commandbuffers
-        {
-            std::array<VkCommandBuffer, 2> submitcommandbuffers = { vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], vulkanCommandBuffers[render::COMMANDBUFFER_SHADOWMAP] };
-
-            VkSubmitInfo submitInfo{};
-            submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-            VkPipelineStageFlags pipelinestageFlag = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-            std::array<VkPipelineStageFlags, 1> pipelinestageFlags = { pipelinestageFlag };
-            submitInfo.pWaitDstStageMask = &pipelinestageFlag;
-            submitInfo.waitSemaphoreCount = 0;
-            submitInfo.pWaitSemaphores = 0;
-            submitInfo.signalSemaphoreCount = 1;
-            submitInfo.pSignalSemaphores = &vulkanSemaphores[render::SEMAPHORE_GBUFFER];
-            submitInfo.commandBufferCount = 1;
-            submitInfo.pCommandBuffers = &vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER];
-            if (vkQueueSubmit(vulkanGraphicsQueues[render::GRAPHICQUEUE_GBUFFER], 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
-            {
-                std::cout << "failed to submit queue" << std::endl;
-                return -1;
-            }
-        }
         {
             VkSubmitInfo submitInfo{};
             submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
