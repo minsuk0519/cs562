@@ -24,13 +24,14 @@ public:
 
 	uint32_t graphicsFamily = UINT32_MAX;
 	uint32_t computeFamily = UINT32_MAX;
+	uint32_t transferFamily = UINT32_MAX;
 
 	bool select_physical_device(VkInstance instance);
 
-	bool create_logical_device(VkInstance instance, VkSurfaceKHR surface, Enable_FeatureFlags featureflags);
+	bool create_logical_device(VkInstance instance, VkSurfaceKHR surface, Enable_FeatureFlags featureflags, uint32_t graphicqueuecount, uint32_t computequeuecount, uint32_t transferqueuecount);
 	bool create_command_pool();
 
-	void request_queue(VkQueue& graphics, VkQueue& compute);
+	void request_queue(VkQueue* graphics, uint32_t graphiccount, VkQueue* compute, uint32_t computecount, VkQueue* transfer, uint32_t transfercount);
 
 	VkCommandBufferAllocateInfo commandbuffer_allocateinfo(uint32_t count, bool compute);
 	bool create_single_commandbuffer_begin(VkCommandBuffer& commandBuffer);

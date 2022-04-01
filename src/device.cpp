@@ -30,7 +30,8 @@ bool device::select_physical_device(VkInstance instance)
     return true;
 }
 
-bool device::create_logical_device(VkInstance /*instance*/, VkSurfaceKHR surface, Enable_FeatureFlags featureflags)
+bool device::create_logical_device(VkInstance /*instance*/, VkSurfaceKHR surface, Enable_FeatureFlags featureflags,
+    uint32_t graphicqueuecount, uint32_t computequeuecount, uint32_t transferqueuecount)
 {
     VkPhysicalDeviceFeatures enabledeviceFeatures{};
     //enable sample shading
@@ -73,29 +74,47 @@ bool device::create_logical_device(VkInstance /*instance*/, VkSurfaceKHR surface
         {
             if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
             {
-                graphicsFamily = queueindex;
+                if (graphicsFamily > queueFamilyProperties.size()) graphicsFamily = queueindex;
             }
             else if (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT)
             {
-                computeFamily = queueindex;
+                if (computeFamily > queueFamilyProperties.size()) computeFamily = queueindex;
+            }
+            else if (queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT)
+            {
+                if (transferFamily > queueFamilyProperties.size()) transferFamily = queueindex;
             }
         }
 
         ++queueindex;
     }
 
-    std::vector<uint32_t> queueFamilies = { graphicsFamily, computeFamily };
+    if (transferFamily == UINT32_MAX) transferFamily = graphicsFamily;
+
+    std::vector<uint32_t> queueFamilies = { graphicsFamily, computeFamily, transferFamily };
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 
-    float queuePriority = { 1.0f };
-    for (uint32_t queueFamily : queueFamilies)
+    std::vector<float> queuePriorities;
+    int prioritynum = std::max(graphicqueuecount + transferqueuecount, computequeuecount);
+    for (int i = 0; i < prioritynum; ++i)  queuePriorities.push_back(1.0f);
+
+    VkDeviceQueueCreateInfo queueCreateInfo{};
+    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queueCreateInfo.pQueuePriorities = queuePriorities.data();
+
+    queueCreateInfo.queueFamilyIndex = graphicsFamily;
+    queueCreateInfo.queueCount = (graphicsFamily == transferFamily) ? graphicqueuecount + transferqueuecount : graphicqueuecount;
+    queueCreateInfos.push_back(queueCreateInfo);
+
+    queueCreateInfo.queueFamilyIndex = computeFamily;
+    queueCreateInfo.queueCount = computequeuecount;
+    queueCreateInfos.push_back(queueCreateInfo);
+
+    if (graphicsFamily != transferFamily)
     {
-        VkDeviceQueueCreateInfo queueCreateInfo{};
-        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        queueCreateInfo.queueFamilyIndex = queueFamily;
-        queueCreateInfo.queueCount = 1;
-        queueCreateInfo.pQueuePriorities = &queuePriority;
+        queueCreateInfo.queueFamilyIndex = transferFamily;
+        queueCreateInfo.queueCount = transferqueuecount;
         queueCreateInfos.push_back(queueCreateInfo);
     }
 
@@ -150,10 +169,31 @@ bool device::create_command_pool()
     return true;
 }
 
-void device::request_queue(VkQueue& graphics, VkQueue& compute)
+void device::request_queue(VkQueue* graphics, uint32_t graphiccount, VkQueue* compute, uint32_t computecount, VkQueue* transfer, uint32_t transfercount)
 {
-    vkGetDeviceQueue(vulkanDevice, graphicsFamily, 0, &graphics);
-    vkGetDeviceQueue(vulkanDevice, computeFamily, 0, &compute);
+    for (uint32_t i = 0; i < graphiccount; ++i)
+    {
+        vkGetDeviceQueue(vulkanDevice, graphicsFamily, i, graphics + i);
+    }
+    for (uint32_t i = 0; i < computecount; ++i)
+    {
+        vkGetDeviceQueue(vulkanDevice, computeFamily, i, compute + i);
+    }
+
+    if (transferFamily == graphicsFamily)
+    {
+        for (uint32_t i = 0; i < transfercount; ++i)
+        {
+            vkGetDeviceQueue(vulkanDevice, graphicsFamily, i + graphiccount, transfer + i);
+        }
+    }
+    else
+    {
+        for (uint32_t i = 0; i < transfercount; ++i)
+        {
+            vkGetDeviceQueue(vulkanDevice, transferFamily, i, transfer + i);
+        }
+    }
 }
 
 VkCommandBufferAllocateInfo device::commandbuffer_allocateinfo(uint32_t count, bool compute)

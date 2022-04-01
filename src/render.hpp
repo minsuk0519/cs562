@@ -84,6 +84,16 @@ namespace descriptor
 	void close_descriptorset_layout(VkDevice device, VkDescriptorSetLayout& descriptorsetlayout);
 };
 
+namespace pass
+{
+	struct draw
+	{
+		draw* previous;
+
+
+	};
+};
+
 namespace render
 {
 	void draw(VkCommandBuffer commandbuffer, VertexBuffer vertexbuffer);
@@ -130,6 +140,7 @@ namespace render
 		SEMAPHORE_AO_BLUR_VERTICAL,
 		SEMAPHORE_AO_BLUR_HORIZONTAL,
 		SEMAPHORE_GBUFFER,
+		SEMAPHORE_SHADOWMAP,
 		SEMAPHORE_SHADOWMAP_BLUR_VERTICAL,
 		SEMAPHORE_SHADOWMAP_BLUR_HORIZONTAL,
 		SEMAPHORE_MAX,
@@ -163,5 +174,27 @@ namespace render
 		RENDERPASS_AO,
 		RENDERPASS_SWAPCHAIN,
 		RENDERPASS_MAX,
+	};
+
+	enum GRAPHICQUEUE_INDEX
+	{
+		GRAPHICQUEUE_GBUFFER = 0,
+		GRAPHICQUEUE_SHADOWMAP,
+		GRAPHICQUEUE_AO,
+		GRAPHICQUEUE_LIGHTING,
+		GRAPHICQUEUE_MAX,
+	};
+
+	enum COMPUTEQUEUE_INDEX
+	{
+		COMPUTEQUEUE_SHADOW_BLUR = 0,
+		COMPUTEQUEUE_AO_BLUR,
+		COMPUTEQUEUE_MAX
+	};
+
+	enum TRANSFERQUEUE_INDEX
+	{
+		TRANSFERQUEUE_NORMAL = 0,
+		TRANSFERQUEUE_MAX
 	};
 }

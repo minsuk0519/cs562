@@ -96,7 +96,7 @@ bool memory::create_buffer(VkDevice device, VkBufferUsageFlags usage, VkMemoryPr
     return true;
 }
 
-bool memory::create_vertex_index_buffer(VkDevice vulkandevice, VkQueue graphicsqueue, device* devicePtr, std::vector<float> vertices, std::vector<uint32_t> indices, VertexBuffer& vertex)
+bool memory::create_vertex_index_buffer(VkDevice vulkandevice, VkQueue transferqueue, device* devicePtr, std::vector<float> vertices, std::vector<uint32_t> indices, VertexBuffer& vertex)
 {
     VkDeviceSize vertexBufferSize = vertices.size() * sizeof(float);
     VkDeviceSize indexBufferSize = indices.size() * sizeof(uint32_t);
@@ -121,7 +121,7 @@ bool memory::create_vertex_index_buffer(VkDevice vulkandevice, VkQueue graphicsq
     copyRegion.size = indexBufferSize;
     vkCmdCopyBuffer(commandBuffer, indexstagingBuffer.buf, vertex.indexbuffer.buf, 1, &copyRegion);
 
-    devicePtr->end_commandbuffer_submit(graphicsqueue, commandBuffer, false);
+    devicePtr->end_commandbuffer_submit(transferqueue, commandBuffer, false);
 
     vkDestroyBuffer(devicePtr->vulkanDevice, vertexstagingBuffer.buf, VK_NULL_HANDLE);
     vkFreeMemory(devicePtr->vulkanDevice, vertexstagingBuffer.memory, VK_NULL_HANDLE);
@@ -133,7 +133,7 @@ bool memory::create_vertex_index_buffer(VkDevice vulkandevice, VkQueue graphicsq
     return true;
 }
 
-bool memory::create_depth_image(device* devicePtr, VkQueue graphicsqueue, VkFormat depthformat, uint32_t width, uint32_t height, Image*& image)
+bool memory::create_depth_image(device* devicePtr, VkQueue /*transferqueue*/, VkFormat depthformat, uint32_t width, uint32_t height, Image*& image)
 {
     image = new Image();
 
@@ -205,7 +205,7 @@ bool memory::create_depth_image(device* devicePtr, VkQueue graphicsqueue, VkForm
 
     //vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 
-    //devicePtr->end_commandbuffer_submit(graphicsqueue, commandBuffer);
+    //devicePtr->end_commandbuffer_submit(transferqueue, commandBuffer);
 
 
 
@@ -302,7 +302,7 @@ bool memory::create_fb_image(VkDevice vulkandevice, VkFormat format, uint32_t wi
     return true;
 }
 
-void memory::transitionImage(device* devicePtr, VkQueue graphicsqueue, VkImage image, uint32_t miplevel, VkImageAspectFlags aspectmask, VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
+void memory::transitionImage(device* devicePtr, VkQueue transferqueue, VkImage image, uint32_t miplevel, VkImageAspectFlags aspectmask, VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
     VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask)
 {
     VkImageSubresourceRange subresourceRange = {};
@@ -328,7 +328,7 @@ void memory::transitionImage(device* devicePtr, VkQueue graphicsqueue, VkImage i
 
     vkCmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 
-    devicePtr->end_commandbuffer_submit(graphicsqueue, commandBuffer, false);
+    devicePtr->end_commandbuffer_submit(transferqueue, commandBuffer, false);
 }
 
 void memory::free_buffer(VkDevice device, Buffer& buf)
@@ -344,7 +344,7 @@ void memory::free_image(VkDevice device, Image*& img)
     vkFreeMemory(device, img->memory, VK_NULL_HANDLE);
 }
 
-bool memory::load_texture_image(device* devicePtr, VkQueue graphicsqueue, std::string filepath, Image*& image, uint32_t& miplevel, VkImageLayout imagelayout)
+bool memory::load_texture_image(device* devicePtr, VkQueue transferqueue, std::string filepath, Image*& image, uint32_t& miplevel, VkImageLayout imagelayout)
 {
     image = new Image();
 
@@ -421,7 +421,7 @@ bool memory::load_texture_image(device* devicePtr, VkQueue graphicsqueue, std::s
         return false;
     }
 
-    transitionImage(devicePtr, graphicsqueue, image->image, miplevel, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    transitionImage(devicePtr, transferqueue, image->image, miplevel, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
     VkCommandBuffer commandBuffer;
     VkBufferImageCopy bufferimageCopy{};
@@ -437,9 +437,9 @@ bool memory::load_texture_image(device* devicePtr, VkQueue graphicsqueue, std::s
 
     devicePtr->create_single_commandbuffer_begin(commandBuffer);
     vkCmdCopyBufferToImage(commandBuffer, buf.buf, image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &bufferimageCopy);
-    devicePtr->end_commandbuffer_submit(graphicsqueue, commandBuffer, false);
+    devicePtr->end_commandbuffer_submit(transferqueue, commandBuffer, false);
 
-    generate_mipmap(devicePtr, graphicsqueue, imageCreateInfo.format, image->image, texWidth, texHeight, miplevel, imagelayout);
+    generate_mipmap(devicePtr, transferqueue, imageCreateInfo.format, image->image, texWidth, texHeight, miplevel, imagelayout);
 
     VkImageViewCreateInfo viewInfo{};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -466,7 +466,7 @@ bool memory::load_texture_image(device* devicePtr, VkQueue graphicsqueue, std::s
 }
 
 //the imagelayout must be 
-void memory::generate_mipmap(device* devicePtr, VkQueue graphicsqueue, VkFormat imageFormat, VkImage& image, uint32_t width, uint32_t height, uint32_t mipmap,
+void memory::generate_mipmap(device* devicePtr, VkQueue transferqueue, VkFormat imageFormat, VkImage& image, uint32_t width, uint32_t height, uint32_t mipmap,
     VkImageLayout imagelayout)
 {
     VkFormatProperties formatProperties;
@@ -554,13 +554,13 @@ void memory::generate_mipmap(device* devicePtr, VkQueue graphicsqueue, VkFormat 
         0, nullptr,
         1, &barrier);
 
-    devicePtr->end_commandbuffer_submit(graphicsqueue, commandBuffer, false);
+    devicePtr->end_commandbuffer_submit(transferqueue, commandBuffer, false);
 }
 
-void memory::generate_filteredtex(device* devicePtr, VkQueue graphicsqueue, VkQueue computequeue, Image*& src, Image*& target, VkSampler sampler)
+void memory::generate_filteredtex(device* devicePtr, VkQueue transferqueue, VkQueue computequeue, Image*& src, Image*& target, VkSampler sampler)
 {
     create_fb_image(devicePtr->vulkanDevice, src->format, 400, 200, target);
-    transitionImage(devicePtr, graphicsqueue, target->image, 1, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+    transitionImage(devicePtr, transferqueue, target->image, 1, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
     VkDescriptorSetLayout descriptorsetlayout;
     VkDescriptorSet descriptorset;
@@ -613,8 +613,6 @@ void memory::generate_filteredtex(device* devicePtr, VkQueue graphicsqueue, VkQu
         &descriptorset, 0, 0);
 
     vkCmdDispatch(commandBuffer, target->width, target->height, 1);
-
-    VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
 
     devicePtr->end_commandbuffer_submit(computequeue, commandBuffer, true);
 

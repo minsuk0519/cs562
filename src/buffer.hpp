@@ -44,20 +44,20 @@ public:
 
     bool create_buffer(VkDevice device, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryproperty, VkDeviceSize size, uint32_t num, Buffer& buffer, void* data = nullptr);
 
-    bool create_vertex_index_buffer(VkDevice vulkandevice, VkQueue graphicsqueue, device* devicePtr, std::vector<float> vertices, std::vector<uint32_t> indices, VertexBuffer& vertex);
+    bool create_vertex_index_buffer(VkDevice vulkandevice, VkQueue transferqueue, device* devicePtr, std::vector<float> vertices, std::vector<uint32_t> indices, VertexBuffer& vertex);
 
-    bool create_depth_image(device* devicePtr, VkQueue graphicsqueue, VkFormat depthformat, uint32_t width, uint32_t height, Image*& image);
+    bool create_depth_image(device* devicePtr, VkQueue transferqueue, VkFormat depthformat, uint32_t width, uint32_t height, Image*& image);
     bool create_fb_image(VkDevice vulkandevice, VkFormat format, uint32_t width, uint32_t height, Image*& image);
 
-    void transitionImage(device* devicePtr, VkQueue graphicsqueue, VkImage image, uint32_t miplevel, VkImageAspectFlags aspectmask, VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
+    void transitionImage(device* devicePtr, VkQueue transferqueue, VkImage image, uint32_t miplevel, VkImageAspectFlags aspectmask, VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
         VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
     void free_buffer(VkDevice device, Buffer& buf);
     void free_image(VkDevice device, Image*& img);
 
-    bool load_texture_image(device* devicePtr, VkQueue graphicsqueue, std::string filepath, Image*& image, uint32_t& miplevel, VkImageLayout imagelayout);
-    void generate_mipmap(device* devicePtr, VkQueue graphicsqueue, VkFormat imageFormat, VkImage& image, uint32_t width, uint32_t height, uint32_t mipmap, VkImageLayout imagelayout);
-    void generate_filteredtex(device* devicePtr, VkQueue graphicsqueue, VkQueue computequeue, Image*& src, Image*& target, VkSampler sampler);
+    bool load_texture_image(device* devicePtr, VkQueue transferqueue, std::string filepath, Image*& image, uint32_t& miplevel, VkImageLayout imagelayout);
+    void generate_mipmap(device* devicePtr, VkQueue transferqueue, VkFormat imageFormat, VkImage& image, uint32_t width, uint32_t height, uint32_t mipmap, VkImageLayout imagelayout);
+    void generate_filteredtex(device* devicePtr, VkQueue transferqueue, VkQueue computequeue, Image*& src, Image*& target, VkSampler sampler);
 
     void setimagebarriermask(VkImageMemoryBarrier& imageMemoryBarrier, VkImageLayout oldImageLayout, VkImageLayout newImageLayout);
 
