@@ -504,6 +504,7 @@ void updatelightingdescriptorset(bool blur)
             {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 10, {uniformbuffers[UNIFORM_INDEX_LIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT].range}, {}},
             {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 11, {uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].range}, {}},
             {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 12, {uniformbuffers[UNIFORM_INDEX_HAMMERSLEYBLOCK].buf, 0, uniformbuffers[UNIFORM_INDEX_HAMMERSLEYBLOCK].range}, {}},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 13, {uniformbuffers[UNIFORM_INDEX_AO_CONSTANT].buf, 0, uniformbuffers[UNIFORM_INDEX_AO_CONSTANT].range}, {}},
         });
     }
     else
@@ -522,6 +523,7 @@ void updatelightingdescriptorset(bool blur)
             {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 10, {uniformbuffers[UNIFORM_INDEX_LIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT].range}, {}},
             {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 11, {uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].range}, {}},
             {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 12, {uniformbuffers[UNIFORM_INDEX_HAMMERSLEYBLOCK].buf, 0, uniformbuffers[UNIFORM_INDEX_HAMMERSLEYBLOCK].range}, {}},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 13, {uniformbuffers[UNIFORM_INDEX_AO_CONSTANT].buf, 0, uniformbuffers[UNIFORM_INDEX_AO_CONSTANT].range}, {}},
         });
     }
 }
@@ -561,6 +563,7 @@ void createdescriptorset()
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_FRAGMENT_BIT, 10},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 11},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 12},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 13},
     });
 
     updatelightingdescriptorset(true);
@@ -1211,7 +1214,7 @@ void setupbuffer()
     //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Arches_E_PineTree/Arches_E_PineTree_3k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
     //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Alexs_Apartment/Alexs_Apt_2k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
     //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/HS-Cave-Room/Mt-Washington-Cave-Room_Ref.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
-    //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Chelsea_Stairs/Chelsea_Stairs_3k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
+    memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Chelsea_Stairs/Chelsea_Stairs_3k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
     //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/snow_machine/test8_Ref.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
     //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Popcorn_Lobby/Lobby-Center_2k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
     //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/QueenMary_Chimney/QueenMary_Chimney_Ref.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
@@ -1220,7 +1223,8 @@ void setupbuffer()
     //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Milkyway/Milkyway_small.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
     //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Winter_Forest/WinterForest_Ref.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
     //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Wooden_Door/WoodenDoor_Ref.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
-    memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Footprint_Court/Footprint_Court_2k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
+    //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Footprint_Court/Footprint_Court_2k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
+    //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Tropical_Beach/Tropical_Beach_3k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
     
     memPtr->generate_filteredtex(devicePtr, vulkanGraphicsQueue, vulkanComputeQueue, imagebuffers[IMAGE_INDEX_SKYDOME], imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE], vulkanSamplers[SAMPLE_INDEX_NORMAL]);
     memPtr->create_sampler(devicePtr, vulkanSamplers[SAMPLE_INDEX_SKYDOME], miplevel);
@@ -1692,6 +1696,7 @@ int main(void)
                     else if (ImGui::MenuItem("Lighting##Target", "", deferred[outputMode::LIGHTING])) lightsetting.outputTex = outputMode::LIGHTING;
                     else if (ImGui::MenuItem("Shadow Map##Target", "", deferred[outputMode::SHADOW_MAP])) lightsetting.outputTex = outputMode::SHADOW_MAP;
                     else if (ImGui::MenuItem("Only Shadow##Target", "", deferred[outputMode::ONLY_SHADOW])) lightsetting.outputTex = outputMode::ONLY_SHADOW;
+                    else if (ImGui::MenuItem("Ambient Occulusion##Target", "", deferred[outputMode::ABIENTOCCULUSION])) lightsetting.outputTex = outputMode::ABIENTOCCULUSION;
 
                     ImGui::EndMenu();
                 }
@@ -2046,95 +2051,94 @@ int main(void)
                 std::cout << "failed to submit queue" << std::endl;
                 return -1;
             }
-
-            //blur
-            {
-                descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_AO_BLUR], {
-                    {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_AO]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_AO_BLUR]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
-                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_POS]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_NORM]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 4, {uniformbuffers[UNIFORM_INDEX_CAMERA].buf, 0, uniformbuffers[UNIFORM_INDEX_CAMERA].range}, {}},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 5, {uniformbuffers[UNIFORM_INDEX_GAUSSIANWEIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_GAUSSIANWEIGHT].range}, {}},
-                });
-
-                VkCommandBufferBeginInfo commandBufferBeginInfo{};
-                commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-                if (vkBeginCommandBuffer(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_VERTICAL], &commandBufferBeginInfo) != VK_SUCCESS)
-                {
-                    std::cout << "failed to begin command buffer!" << std::endl;
-                    return -1;
-                }
-
-                vkCmdBindPipeline(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_VERTICAL], VK_PIPELINE_BIND_POINT_COMPUTE, vulkanPipelines[render::PIPELINE_AO_BLUR_VERTICAL]);
-                vkCmdBindDescriptorSets(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_VERTICAL], VK_PIPELINE_BIND_POINT_COMPUTE, vulkanPipelineLayouts[render::PIPELINE_AO_BLUR_VERTICAL], 0, 1,
-                    &vulkanDescriptorSets[render::DESCRIPTOR_AO_BLUR], 0, 0);
-
-                vkCmdDispatch(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_VERTICAL], windowPtr->windowWidth / 120, windowPtr->windowHeight, 1);
-
-                vkEndCommandBuffer(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_VERTICAL]);
-
-                VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-
-                // Submit compute commands
-                VkSubmitInfo submitInfo{};
-                submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-                submitInfo.commandBufferCount = 1;
-                submitInfo.pCommandBuffers = &vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_VERTICAL];
-                submitInfo.waitSemaphoreCount = 1;
-                submitInfo.pWaitSemaphores = &vulkanSemaphores[render::SEMAPHORE_AO];
-                submitInfo.pWaitDstStageMask = &waitStageMask;
-                submitInfo.signalSemaphoreCount = 1;
-                submitInfo.pSignalSemaphores = &vulkanSemaphores[render::COMPUTECMDBUFFER_AO_BLUR_VERTICAL];
-                if (vkQueueSubmit(vulkanComputeQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
-                {
-                    std::cout << "failed to submit queue" << std::endl;
-                    return -1;
-                }
-
-                vkQueueWaitIdle(vulkanComputeQueue);
-
-                descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_AO_BLUR], {
-                    {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_AO_BLUR]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_AO_BLUR]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
-                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_POS]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_NORM]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 4, {uniformbuffers[UNIFORM_INDEX_CAMERA].buf, 0, uniformbuffers[UNIFORM_INDEX_CAMERA].range}, {}},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 5, {uniformbuffers[UNIFORM_INDEX_GAUSSIANWEIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_GAUSSIANWEIGHT].range}, {}},
-                });
-
-                if (vkBeginCommandBuffer(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_HORIZONTAL], &commandBufferBeginInfo) != VK_SUCCESS)
-                {
-                    std::cout << "failed to begin command buffer!" << std::endl;
-                    return -1;
-                }
-
-                vkCmdBindPipeline(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_HORIZONTAL], VK_PIPELINE_BIND_POINT_COMPUTE, vulkanPipelines[render::PIPELINE_AO_BLUR_HORIZONTAL]);
-                vkCmdBindDescriptorSets(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_HORIZONTAL], VK_PIPELINE_BIND_POINT_COMPUTE, vulkanPipelineLayouts[render::PIPELINE_AO_BLUR_HORIZONTAL], 0, 1,
-                    &vulkanDescriptorSets[render::DESCRIPTOR_AO_BLUR], 0, 0);
-
-                vkCmdDispatch(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_HORIZONTAL], windowPtr->windowWidth, windowPtr->windowHeight / 100, 1);
-
-                vkEndCommandBuffer(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_HORIZONTAL]);
-
-                // Submit compute commands
-                submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-                submitInfo.commandBufferCount = 1;
-                submitInfo.pCommandBuffers = &vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_HORIZONTAL];
-                submitInfo.waitSemaphoreCount = 1;
-                submitInfo.pWaitSemaphores = &vulkanSemaphores[render::COMPUTECMDBUFFER_AO_BLUR_VERTICAL];
-                submitInfo.pWaitDstStageMask = &waitStageMask;
-                submitInfo.signalSemaphoreCount = 1;
-                submitInfo.pSignalSemaphores = &vulkanSemaphores[render::COMPUTECMDBUFFER_AO_BLUR_HORIZONTAL];
-                if (vkQueueSubmit(vulkanComputeQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
-                {
-                    std::cout << "failed to submit queue" << std::endl;
-                    return -1;
-                }
-            }
         }
 
+        //blur
+        {
+            descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_AO_BLUR], {
+                {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_AO]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
+                {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_AO_BLUR]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
+                {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_POS]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+                {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_NORM]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+                {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 4, {uniformbuffers[UNIFORM_INDEX_CAMERA].buf, 0, uniformbuffers[UNIFORM_INDEX_CAMERA].range}, {}},
+                {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 5, {uniformbuffers[UNIFORM_INDEX_GAUSSIANWEIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_GAUSSIANWEIGHT].range}, {}},
+                });
+
+            VkCommandBufferBeginInfo commandBufferBeginInfo{};
+            commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+            if (vkBeginCommandBuffer(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_VERTICAL], &commandBufferBeginInfo) != VK_SUCCESS)
+            {
+                std::cout << "failed to begin command buffer!" << std::endl;
+                return -1;
+            }
+
+            vkCmdBindPipeline(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_VERTICAL], VK_PIPELINE_BIND_POINT_COMPUTE, vulkanPipelines[render::PIPELINE_AO_BLUR_VERTICAL]);
+            vkCmdBindDescriptorSets(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_VERTICAL], VK_PIPELINE_BIND_POINT_COMPUTE, vulkanPipelineLayouts[render::PIPELINE_AO_BLUR_VERTICAL], 0, 1,
+                &vulkanDescriptorSets[render::DESCRIPTOR_AO_BLUR], 0, 0);
+
+            vkCmdDispatch(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_VERTICAL], windowPtr->windowWidth / 120, windowPtr->windowHeight, 1);
+
+            vkEndCommandBuffer(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_VERTICAL]);
+
+            VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+
+            // Submit compute commands
+            VkSubmitInfo submitInfo{};
+            submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+            submitInfo.commandBufferCount = 1;
+            submitInfo.pCommandBuffers = &vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_VERTICAL];
+            submitInfo.waitSemaphoreCount = 1;
+            submitInfo.pWaitSemaphores = &vulkanSemaphores[render::SEMAPHORE_AO];
+            submitInfo.pWaitDstStageMask = &waitStageMask;
+            submitInfo.signalSemaphoreCount = 1;
+            submitInfo.pSignalSemaphores = &vulkanSemaphores[render::COMPUTECMDBUFFER_AO_BLUR_VERTICAL];
+            if (vkQueueSubmit(vulkanComputeQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
+            {
+                std::cout << "failed to submit queue" << std::endl;
+                return -1;
+            }
+
+            vkQueueWaitIdle(vulkanComputeQueue);
+
+            descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_AO_BLUR], {
+                {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_AO_BLUR]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
+                {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_AO_BLUR]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
+                {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_POS]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+                {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_NORM]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+                {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 4, {uniformbuffers[UNIFORM_INDEX_CAMERA].buf, 0, uniformbuffers[UNIFORM_INDEX_CAMERA].range}, {}},
+                {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 5, {uniformbuffers[UNIFORM_INDEX_GAUSSIANWEIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_GAUSSIANWEIGHT].range}, {}},
+                });
+
+            if (vkBeginCommandBuffer(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_HORIZONTAL], &commandBufferBeginInfo) != VK_SUCCESS)
+            {
+                std::cout << "failed to begin command buffer!" << std::endl;
+                return -1;
+            }
+
+            vkCmdBindPipeline(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_HORIZONTAL], VK_PIPELINE_BIND_POINT_COMPUTE, vulkanPipelines[render::PIPELINE_AO_BLUR_HORIZONTAL]);
+            vkCmdBindDescriptorSets(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_HORIZONTAL], VK_PIPELINE_BIND_POINT_COMPUTE, vulkanPipelineLayouts[render::PIPELINE_AO_BLUR_HORIZONTAL], 0, 1,
+                &vulkanDescriptorSets[render::DESCRIPTOR_AO_BLUR], 0, 0);
+
+            vkCmdDispatch(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_HORIZONTAL], windowPtr->windowWidth, windowPtr->windowHeight / 100, 1);
+
+            vkEndCommandBuffer(vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_HORIZONTAL]);
+
+            // Submit compute commands
+            submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+            submitInfo.commandBufferCount = 1;
+            submitInfo.pCommandBuffers = &vulkanComputeCommandBuffers[render::COMPUTECMDBUFFER_AO_BLUR_HORIZONTAL];
+            submitInfo.waitSemaphoreCount = 1;
+            submitInfo.pWaitSemaphores = &vulkanSemaphores[render::COMPUTECMDBUFFER_AO_BLUR_VERTICAL];
+            submitInfo.pWaitDstStageMask = &waitStageMask;
+            submitInfo.signalSemaphoreCount = 1;
+            submitInfo.pSignalSemaphores = &vulkanSemaphores[render::COMPUTECMDBUFFER_AO_BLUR_HORIZONTAL];
+            if (vkQueueSubmit(vulkanComputeQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
+            {
+                std::cout << "failed to submit queue" << std::endl;
+                return -1;
+            }
+        }
 
         //lightingpass
         {

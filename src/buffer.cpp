@@ -359,7 +359,7 @@ bool memory::load_texture_image(device* devicePtr, VkQueue graphicsqueue, std::s
     float* pixeldata = new float[texWidth * texHeight * 4];
     unsigned int dataindex = 0;
     for (int i = 0; i < texWidth * texHeight * 3; i += 3)
-    {
+    {     
         pixeldata[dataindex++] = pixels[i + 0];
         pixeldata[dataindex++] = pixels[i + 1];
         pixeldata[dataindex++] = pixels[i + 2];

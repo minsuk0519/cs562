@@ -44,6 +44,14 @@ layout(binding = 12) uniform low_discrepancy
 	hammersley random;
 };
 
+layout(binding = 13) uniform aoConstant
+{
+	float s;
+	float k;
+	float R;
+	int n;
+} ambientocclusion;
+
 vec3 calcImageBasedLight(vec3 viewDir, vec3 normal, float roughness, float metal, vec3 albedo, vec3 F0, float ao)
 {
 	vec3 R = 2 * dot(normal, viewDir) * normal - viewDir;
@@ -141,6 +149,13 @@ void main()
 		outColor = vec4(1 - shadow, 1 - shadow, 1 - shadow, 1.0);
 		return;
 	}
+	else if(setting.outputTex == 7)
+	{
+		float ao = texture(aoTex, outTexcoord).x;
+		ao = max(0, pow((1 - ambientocclusion.s * ao), ambientocclusion.k));
+		outColor = vec4(vec3(ao), 1.0);
+		return;
+	}
 	
 	if(length(texture(normTex, outTexcoord).xyz) < 0.1)
 	{
@@ -163,6 +178,7 @@ void main()
 	float refractiveindex = texture(albedoTex, outTexcoord).w;
 	albedo = mix(albedo, pow(albedo, vec3(2.2)), setting.highdynamicrange);
 	float ao = texture(aoTex, outTexcoord).x;
+	ao = clamp(pow((1 - ambientocclusion.s * ao), ambientocclusion.k), 0.0, 1.0);
 	
 	vec3 viewDir = normalize(cam.position - position);
 	

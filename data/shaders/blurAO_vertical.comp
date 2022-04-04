@@ -37,6 +37,8 @@ void main()
 	uint threadid = gl_LocalInvocationID.x;
 	
 	ivec2 fragcoord = gpos + ivec2(-w, 0);
+	fragcoord.x = clamp(fragcoord.x, 0, cam.width);
+	fragcoord.y = clamp(fragcoord.y, 0, cam.height);
 	
 	v[threadid] = imageLoad(blurTarget, fragcoord);
 	vec3 P = texelFetch(posTex, fragcoord, 0).xyz;
@@ -47,6 +49,9 @@ void main()
 	if(threadid <= 2 * w)
 	{
 		fragcoord = gpos + ivec2(xsize-w, 0);
+		fragcoord.x = clamp(fragcoord.x, 0, cam.width);
+		fragcoord.y = clamp(fragcoord.y, 0, cam.height);
+		
 		v[threadid + xsize] = imageLoad(blurTarget, fragcoord);
 		
 		P = texelFetch(posTex, fragcoord, 0).xyz;
@@ -57,8 +62,8 @@ void main()
 	
     barrier();
 		
-	float distance = d[threadid];
-	vec3 N = n[threadid];
+	float distance = d[w + threadid];
+	vec3 N = n[w + threadid];
 	
 	float s = 0.01;
 	
@@ -76,7 +81,7 @@ void main()
 		Wsum += W;
 		rgba += v[i + threadid] * W;
 	}
-	
+		
 	if(Wsum >= 0.0000001) rgba /= Wsum;
 			
 	imageStore(blurOutput, gpos, rgba);

@@ -56,7 +56,7 @@ void main()
 	}
 	
 	float S = ((2 * PI * c) / ao.n) * value;
-	float A = max(0, pow((1 - ao.s * S), ao.k));
+	float A = S;//max(0, pow((1 - ao.s * S), ao.k));
 	
 	outColor = A;
 }
