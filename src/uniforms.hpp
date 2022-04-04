@@ -39,6 +39,7 @@ struct lightSetting
 	float gamma = 1.0f;
 	float exposure = 1.0f;
 	bool highdynamicrange = true;
+	int aoenable = 1;
 };
 
 struct camera
@@ -167,6 +168,7 @@ enum VERTEX_INDEX
 {
 	VERTEX_INDEX_BUNNY = 0,
 	VERTEX_INDEX_ARMADILLO,
+	VERTEX_INDEX_DRAGON,
 	VERTEX_INDEX_ROOM,
 	VERTEX_INDEX_SPHERE,
 	VERTEX_INDEX_SPHERE_POSONLY,

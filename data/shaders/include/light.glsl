@@ -10,6 +10,7 @@ struct lightsetting
 	float gamma;
 	float exposure;
 	int highdynamicrange;
+	int aoenable;
 };
 
 struct light

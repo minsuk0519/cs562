@@ -31,6 +31,11 @@ void main()
 	vec3 P = texture(posTex, texcoord).xyz;
 	vec3 N = texture(normTex, texcoord).xyz;
 	
+	if(length(N) < 0.1)
+	{
+		discard;
+	}
+	
 	vec3 diff = P - cam.position;
 	float d = length(diff);
 	
@@ -56,7 +61,7 @@ void main()
 	}
 	
 	float S = ((2 * PI * c) / ao.n) * value;
-	float A = S;//max(0, pow((1 - ao.s * S), ao.k));
+	float A = max(0, pow((1 - ao.s * S), ao.k));
 	
 	outColor = A;
 }

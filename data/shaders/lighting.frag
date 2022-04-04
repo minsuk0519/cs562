@@ -152,7 +152,6 @@ void main()
 	else if(setting.outputTex == 7)
 	{
 		float ao = texture(aoTex, outTexcoord).x;
-		ao = max(0, pow((1 - ambientocclusion.s * ao), ambientocclusion.k));
 		outColor = vec4(vec3(ao), 1.0);
 		return;
 	}
@@ -178,7 +177,7 @@ void main()
 	float refractiveindex = texture(albedoTex, outTexcoord).w;
 	albedo = mix(albedo, pow(albedo, vec3(2.2)), setting.highdynamicrange);
 	float ao = texture(aoTex, outTexcoord).x;
-	ao = clamp(pow((1 - ambientocclusion.s * ao), ambientocclusion.k), 0.0, 1.0);
+	ao = clamp(ao + 1.0 - setting.aoenable, 0.0, 1.0);
 	
 	vec3 viewDir = normalize(cam.position - position);
 	
