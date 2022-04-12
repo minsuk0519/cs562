@@ -154,6 +154,11 @@ struct lightprobe_proj
 	glm::vec3 pos;
 };
 
+struct light_probe_index
+{
+	int id = 0;
+};
+
 enum UNIFORM_INDEX
 {
 	UNIFORM_INDEX_PROJECTION = 0,

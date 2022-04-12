@@ -499,12 +499,12 @@ void createRenderpass()
         imagebuffers[IMAGE_INDEX_AO],
     });
 
-    //ambientocculusion pass
+    //lightprobe pass
     renderpass::create_renderpass(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_LIGHTPROBE], {
-        {imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE]->format, 0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, renderpass::ATTACHMENT_NONE},
-        {imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM]->format, 1, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, renderpass::ATTACHMENT_NONE},
-        {imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST]->format, 2, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, renderpass::ATTACHMENT_NONE},
-        {vulkanDepthFormat, 3, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, renderpass::ATTACHMENT_DEPTH},
+        {imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE]->format, 0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, renderpass::ATTACHMENT_NONE},
+        {imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM]->format, 1, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, renderpass::ATTACHMENT_NONE},
+        {imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST]->format, 2, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, renderpass::ATTACHMENT_NONE},
+        {vulkanDepthFormat, 3, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, renderpass::ATTACHMENT_DEPTH},
     });
 
     renderpass::create_framebuffer(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_LIGHTPROBE], vulkanFramebuffers[render::FRAMEBUFFER_LIGHTPROBE], {
@@ -1018,8 +1018,8 @@ void createPipeline()
 
         std::vector<VkVertexInputAttributeDescription> vertexinputs = {
             { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 },
-            { 1, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 },
-            { 2, 0, VK_FORMAT_R32G32_SFLOAT, 0 },
+            { 1, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(glm::vec3) },
+            { 2, 0, VK_FORMAT_R32G32_SFLOAT, sizeof(glm::vec3) * 2 },
         };
 
         VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo = pipeline::getInputAssemblyCreateInfo();
@@ -1156,7 +1156,8 @@ void updatebuffer()
 
     objects[16]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f));
 
-    objects[17]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(6.0f, -0.96f, 0.0f)) * glm::rotate(glm::mat4(1.0f), -PI_HALF, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(20.0f));
+    objects[17]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(6.0f, -0.96f, 0.0f)) * glm::rotate(glm::mat4(1.0f), -PI_HALF, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.001f));
+    //objects[17]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(6.0f, -0.96f, 0.0f)) * glm::rotate(glm::mat4(1.0f), -PI_HALF, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(20.0f));
 
     for (int i = 0; i < 5; ++i)
     {
@@ -1301,12 +1302,12 @@ void setupbuffer()
     memPtr->generate_filteredtex(devicePtr, vulkanGraphicsQueue, vulkanComputeQueue, imagebuffers[IMAGE_INDEX_SKYDOME], imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE], vulkanSamplers[SAMPLE_INDEX_NORMAL]);
     memPtr->create_sampler(devicePtr, vulkanSamplers[SAMPLE_INDEX_SKYDOME], miplevel);
 
-
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_B10G11R11_UFLOAT_PACK32, lightprobeTexSize, lightprobeTexSize, 1, imagebuffers[IMAGE_INDEX_LIGHTPROBE_RADIANCE]);
-    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, lightprobeCubemapTexSize, lightprobeCubemapTexSize, 6, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE]);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R8G8_SNORM, lightprobeTexSize, lightprobeTexSize, 1, imagebuffers[IMAGE_INDEX_LIGHTPROBE_NORM]);
-    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R8G8B8A8_SNORM, lightprobeCubemapTexSize, lightprobeCubemapTexSize, 6, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM]);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16_SFLOAT, lightprobeTexSize, lightprobeTexSize, 1, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST]);
+
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, lightprobeCubemapTexSize, lightprobeCubemapTexSize, 6, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE]);
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, lightprobeCubemapTexSize, lightprobeCubemapTexSize, 6, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM]);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16_SFLOAT, lightprobeCubemapTexSize, lightprobeCubemapTexSize, 6, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST]);
     memPtr->create_depth_image(devicePtr, vulkanGraphicsQueue, vulkanDepthFormat, lightprobeCubemapTexSize, lightprobeCubemapTexSize, 6, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DEPTH]);
 
@@ -1463,91 +1464,121 @@ void setupbuffer()
     }
 
 
-    glm::mat4 proj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 1000.0f);
-    //force it to right handed
-    proj[1][1] *= -1.0f;
-    unsigned int lightprobeSizeSquared = lightprobeSize_unit * lightprobeSize_unit;
-    for (unsigned int i = 0; i < lightprobeSize_unit; ++i)
     {
-        for (unsigned int j = 0; j < lightprobeSize_unit; ++j)
-        {
-            for (unsigned int k = 0; k < lightprobeSize_unit; ++k)
-            {
-                float x = (i - lightprobeSize_unit / 2) * lightprobeDistant;
-                float y = j * lightprobeDistant;
-                glm::vec3 pos = glm::vec3(x, y, y);
-                lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].pos = pos;
 
-                lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].projs[0] = proj * glm::lookAtLH(pos, pos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
-                lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].projs[1] = proj * glm::lookAtLH(pos, pos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
-                lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].projs[2] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, -1.0));
-                lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].projs[3] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
-                lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].projs[4] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, 1.0, 0.0));
-                lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].projs[5] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, 1.0, 0.0));
+        glm::mat4 proj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 1000.0f);
+        //force it to right handed
+        proj[1][1] *= -1.0f;
+        unsigned int lightprobeSizeSquared = lightprobeSize_unit * lightprobeSize_unit;
+        for (unsigned int i = 0; i < lightprobeSize_unit; ++i)
+        {
+            for (unsigned int j = 0; j < lightprobeSize_unit; ++j)
+            {
+                for (unsigned int k = 0; k < lightprobeSize_unit; ++k)
+                {
+                    float x = (i - lightprobeSize_unit * 0.5f) * lightprobeDistant;
+                    float y = j * lightprobeDistant;
+                    //glm::vec3 pos = glm::vec3(x, y, y);
+                    glm::vec3 pos = glm::vec3(0.75f, 2.25f, -5.5f);
+                    lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].pos = pos;
+
+                    lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].projs[0] = proj * glm::lookAtLH(pos, pos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
+                    lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].projs[1] = proj * glm::lookAtLH(pos, pos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
+                    lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].projs[2] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, -1.0));
+                    lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].projs[3] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
+                    lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].projs[4] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, 1.0, 0.0));
+                    lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].projs[5] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, 1.0, 0.0));
+                }
             }
         }
+
+        void* data;
+        vkMapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_PROJ].memory, 0, uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_PROJ].range, 0, &data);
+        memcpy(data, lightprobesProj.data(), uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_PROJ].size);
+        vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_PROJ].memory);
     }
 
     updatebuffer();
+}
 
+void bakelightprobe()
+{
     //prebuilt light probes
     {
-        /*unsigned int probeSize = lightprobeSize();
-        for (int i = 0; i < probeSize; ++i)
+        unsigned int probeSize = 1;// lightprobeSize();
+        for (unsigned int i = 0; i < probeSize; ++i)
         {
             VkCommandBufferBeginInfo commandBufferBeginInfo{};
             commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-            std::array<VkClearValue, 5> gbufferclearValues;
-            gbufferclearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-            gbufferclearValues[1].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-            gbufferclearValues[2].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-            gbufferclearValues[4].depthStencil = { 1.0f, 0 };
+            std::array<VkClearValue, 4> lightprobeclearValues;
+            lightprobeclearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+            lightprobeclearValues[1].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+            lightprobeclearValues[2].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+            lightprobeclearValues[3].depthStencil = { 1.0f, 0 };
 
             VkRenderPassBeginInfo renderPassBeginInfo{};
             renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-            renderPassBeginInfo.renderPass = vulkanRenderpasses[render::RENDERPASS_GBUFFER];
+            renderPassBeginInfo.renderPass = vulkanRenderpasses[render::RENDERPASS_LIGHTPROBE];
             renderPassBeginInfo.renderArea.offset.x = 0;
             renderPassBeginInfo.renderArea.offset.y = 0;
-            renderPassBeginInfo.renderArea.extent.width = windowPtr->windowWidth;
-            renderPassBeginInfo.renderArea.extent.height = windowPtr->windowHeight;
-            renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(gbufferclearValues.size());
-            renderPassBeginInfo.pClearValues = gbufferclearValues.data();
-            renderPassBeginInfo.framebuffer = vulkanFramebuffers[render::RENDERPASS_GBUFFER];
+            renderPassBeginInfo.renderArea.extent.width = lightprobeCubemapTexSize;
+            renderPassBeginInfo.renderArea.extent.height = lightprobeCubemapTexSize;
+            renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(lightprobeclearValues.size());
+            renderPassBeginInfo.pClearValues = lightprobeclearValues.data();
+            renderPassBeginInfo.framebuffer = vulkanFramebuffers[render::FRAMEBUFFER_LIGHTPROBE];
 
-            if (vkBeginCommandBuffer(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], &commandBufferBeginInfo) != VK_SUCCESS)
+            if (vkBeginCommandBuffer(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], &commandBufferBeginInfo) != VK_SUCCESS)
             {
                 std::cout << "failed to begin command buffer!" << std::endl;
-                return -1;
             }
 
-            vkCmdResetQueryPool(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_START, 2);
-            vkCmdWriteTimestamp(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_START);
+            //vkCmdResetQueryPool(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_START, 2);
+            //vkCmdWriteTimestamp(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_START);
 
-            vkCmdBeginRenderPass(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-            vkCmdBindPipeline(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelines[render::PIPELINE_GBUFFER]);
+            vkCmdBeginRenderPass(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+            vkCmdBindPipeline(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelines[render::PIPELINE_LIGHTPROBE_MAP]);
 
-            std::array<uint32_t, 1> dynamicoffsets = { 0 };
+            std::array<uint32_t, 3> dynamicoffsets = { 0, 0, 0 };
 
             for (auto obj : objects)
             {
-                vkCmdBindDescriptorSets(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelineLayouts[render::PIPELINE_GBUFFER], 0, 1,
-                    &vulkanDescriptorSets[render::PIPELINE_GBUFFER], static_cast<uint32_t>(dynamicoffsets.size()), dynamicoffsets.data());
+                vkCmdBindDescriptorSets(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelineLayouts[render::PIPELINE_LIGHTPROBE_MAP], 0, 1,
+                    &vulkanDescriptorSets[render::DESCRIPTOR_LIGHTPROBE_MAP], static_cast<uint32_t>(dynamicoffsets.size()), dynamicoffsets.data());
 
-                obj->draw_object(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER]);
+                obj->draw_object(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE]);
                 dynamicoffsets[0] += 128;
             }
 
-            vkCmdEndRenderPass(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER]);
+            vkCmdEndRenderPass(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE]);
 
-            vkCmdWriteTimestamp(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_END);
+            //vkCmdWriteTimestamp(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_END);
 
-            if (vkEndCommandBuffer(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER]) != VK_SUCCESS)
+            if (vkEndCommandBuffer(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE]) != VK_SUCCESS)
             {
                 std::cout << "failed to end commnad buffer!" << std::endl;
-                return -1;
             }
-        }*/
+
+            std::array<VkCommandBuffer, 1> submitcommandbuffers = { vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE] };
+
+            VkSubmitInfo submitInfo{};
+            submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+            VkPipelineStageFlags pipelinestageFlag = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            std::array<VkPipelineStageFlags, 1> pipelinestageFlags = { pipelinestageFlag };
+            submitInfo.pWaitDstStageMask = &pipelinestageFlag;
+            submitInfo.waitSemaphoreCount = 0;
+            submitInfo.pWaitSemaphores = 0;
+            submitInfo.signalSemaphoreCount = 0;
+            submitInfo.pSignalSemaphores = 0;
+            submitInfo.commandBufferCount = static_cast<uint32_t>(submitcommandbuffers.size());
+            submitInfo.pCommandBuffers = submitcommandbuffers.data();
+            if (vkQueueSubmit(vulkanGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
+            {
+                std::cout << "failed to submit queue" << std::endl;
+            }
+
+            vkQueueWaitIdle(vulkanGraphicsQueue);
+        }
     }
 }
 
@@ -1594,6 +1625,7 @@ void init()
     createquerypool();
     createdescriptorset();
     createPipeline();
+    bakelightprobe();
 }
 
 void update(float dt)
@@ -1957,7 +1989,7 @@ int main(void)
             for (auto obj : objects)
             {
                 vkCmdBindDescriptorSets(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelineLayouts[render::PIPELINE_GBUFFER], 0, 1, 
-                    &vulkanDescriptorSets[render::PIPELINE_GBUFFER], static_cast<uint32_t>(dynamicoffsets.size()), dynamicoffsets.data());
+                    &vulkanDescriptorSets[render::DESCRIPTOR_GBUFFER], static_cast<uint32_t>(dynamicoffsets.size()), dynamicoffsets.data());
 
                 obj->draw_object(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER]);
                 dynamicoffsets[0] += 128;

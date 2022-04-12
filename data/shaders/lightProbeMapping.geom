@@ -1,4 +1,4 @@
-#version 450
+#version 430
 layout (triangles) in;
 layout (triangle_strip, max_vertices=18) out;
 
@@ -8,9 +8,8 @@ layout (binding = 1) uniform probeProj {
 	vec3 position;
 };
 
-layout(location = 0) in vec3[] outPos;
-layout(location = 1) in vec3[] outNormal;
-layout(location = 2) in vec2[] outTexcoord;
+layout(location = 0) in vec3[] outNormal;
+layout(location = 1) in vec2[] outTexcoord;
 
 layout(location = 0) out vec3 wPosition;
 layout(location = 1) out vec3 probePosition;
@@ -24,8 +23,9 @@ void main()
 		for(int i = 0; i < 3; ++i)
 		{
 			gl_Layer = face;
+			wPosition = gl_in[i].gl_Position.xyz;
 			gl_Position = probeMat[face] * vec4(wPosition, 1.0);
-			wPosition = outPos[i];
+						
 			probePosition = position;
 			wNormal = outNormal[i];
 			texCoord = outTexcoord[i];
