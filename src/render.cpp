@@ -30,8 +30,10 @@ bool pipeline::create_pipieline(VkDevice device, VkGraphicsPipelineCreateInfo& p
         return false;
     }
 
-    vkDestroyShaderModule(device, shadercreateinfos[0].module, VK_NULL_HANDLE);
-    vkDestroyShaderModule(device, shadercreateinfos[1].module, VK_NULL_HANDLE);
+    for (VkPipelineShaderStageCreateInfo& shadercreateinfo : shadercreateinfos)
+    {
+        vkDestroyShaderModule(device, shadercreateinfo.module, VK_NULL_HANDLE);
+    }
 
     return true;
 }

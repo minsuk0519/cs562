@@ -90,12 +90,6 @@ float calGeometry_Beckman(float VdotN, float roughness)
 
 float calGeometry(float NdotV, float NdotL, float roughness)
 {
-	//float alphaplusone = (roughness + 1.0);
-    //float k = (alphaplusone * alphaplusone) / 8.0;
-
-    //float viewG = NdotV / (NdotV * (1.0 - k) + k);
-    //float lightG = NdotL / (NdotL * (1.0 - k) + k);
-
 	//phong
 	//float viewG = calGeometry_Phong(NdotV, roughness);
 	//float lightG = calGeometry_Phong(NdotL, roughness);
@@ -105,6 +99,17 @@ float calGeometry(float NdotV, float NdotL, float roughness)
 	//Beckman
 	//float viewG = calGeometry_Beckman(NdotV, roughness);
 	//float lightG = calGeometry_Beckman(NdotL, roughness);
+	
+	return viewG * lightG;
+}
+
+float calOptimizedGeometry(float NdotV, float NdotL, float roughness)
+{
+	float alphaplusone = (roughness + 1.0);
+    float k = (alphaplusone * alphaplusone) / 8.0;
+
+    float viewG = NdotV / (NdotV * (1.0 - k) + k);
+    float lightG = NdotL / (NdotL * (1.0 - k) + k);
 	
 	return viewG * lightG;
 }
@@ -146,7 +151,7 @@ vec3 calcLight(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 albedo, vec3 light
 	float NdotH = max(dot(normal, halfway), 0.0);
 
 	float D = calNormalDistribution_GGX(NdotH, roughness);
-	float G = calGeometry(NdotV, NdotL, roughness);      
+	float G = calOptimizedGeometry(NdotV, NdotL, roughness);      
 	vec3 F = calFresnel(NdotH, F0);
 			   
 	vec3 specular = D * G * F / (4.0 * NdotV * NdotL + 0.0001);

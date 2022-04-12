@@ -133,7 +133,7 @@ bool memory::create_vertex_index_buffer(VkDevice vulkandevice, VkQueue graphicsq
     return true;
 }
 
-bool memory::create_depth_image(device* devicePtr, VkQueue graphicsqueue, VkFormat depthformat, uint32_t width, uint32_t height, Image*& image)
+bool memory::create_depth_image(device* devicePtr, VkQueue graphicsqueue, VkFormat depthformat, uint32_t width, uint32_t height, uint32_t layer, Image*& image)
 {
     image = new Image();
 
@@ -145,7 +145,7 @@ bool memory::create_depth_image(device* devicePtr, VkQueue graphicsqueue, VkForm
     imageCreateInfo.format = depthformat;
     imageCreateInfo.extent = { width, height, 1 };
     imageCreateInfo.mipLevels = 1;
-    imageCreateInfo.arrayLayers = 1;
+    imageCreateInfo.arrayLayers = layer;
     imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     imageCreateInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
@@ -234,7 +234,7 @@ bool memory::create_depth_image(device* devicePtr, VkQueue graphicsqueue, VkForm
     return true;
 }
 
-bool memory::create_fb_image(VkDevice vulkandevice, VkFormat format, uint32_t width, uint32_t height, Image*& image)
+bool memory::create_fb_image(VkDevice vulkandevice, VkFormat format, uint32_t width, uint32_t height, uint32_t layer, Image*& image)
 {
     image = new Image();
 
@@ -246,7 +246,7 @@ bool memory::create_fb_image(VkDevice vulkandevice, VkFormat format, uint32_t wi
     imageCreateInfo.extent.height = height;
     imageCreateInfo.extent.depth = 1;
     imageCreateInfo.mipLevels = 1;
-    imageCreateInfo.arrayLayers = 1;
+    imageCreateInfo.arrayLayers = layer;
     imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     imageCreateInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
@@ -559,7 +559,7 @@ void memory::generate_mipmap(device* devicePtr, VkQueue graphicsqueue, VkFormat 
 
 void memory::generate_filteredtex(device* devicePtr, VkQueue graphicsqueue, VkQueue computequeue, Image*& src, Image*& target, VkSampler sampler)
 {
-    create_fb_image(devicePtr->vulkanDevice, src->format, 400, 200, target);
+    create_fb_image(devicePtr->vulkanDevice, src->format, 400, 200, 1, target);
     transitionImage(devicePtr, graphicsqueue, target->image, 1, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
     VkDescriptorSetLayout descriptorsetlayout;

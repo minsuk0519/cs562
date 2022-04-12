@@ -46,8 +46,8 @@ public:
 
     bool create_vertex_index_buffer(VkDevice vulkandevice, VkQueue graphicsqueue, device* devicePtr, std::vector<float> vertices, std::vector<uint32_t> indices, VertexBuffer& vertex);
 
-    bool create_depth_image(device* devicePtr, VkQueue graphicsqueue, VkFormat depthformat, uint32_t width, uint32_t height, Image*& image);
-    bool create_fb_image(VkDevice vulkandevice, VkFormat format, uint32_t width, uint32_t height, Image*& image);
+    bool create_depth_image(device* devicePtr, VkQueue graphicsqueue, VkFormat depthformat, uint32_t width, uint32_t height, uint32_t layer, Image*& image);
+    bool create_fb_image(VkDevice vulkandevice, VkFormat format, uint32_t width, uint32_t height, uint32_t layer, Image*& image);
 
     void transitionImage(device* devicePtr, VkQueue graphicsqueue, VkImage image, uint32_t miplevel, VkImageAspectFlags aspectmask, VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
         VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);

@@ -54,7 +54,7 @@ layout(binding = 13) uniform aoConstant
 
 vec3 calcImageBasedLight(vec3 viewDir, vec3 normal, float roughness, float metal, vec3 albedo, vec3 F0, float ao)
 {
-	vec3 R = 2 * dot(normal, viewDir) * normal - viewDir;
+	vec3 R = (2 * dot(normal, viewDir) * normal - viewDir);
 	vec3 A = normalize(vec3(R.z, 0, -R.x));
 	vec3 B = normalize(cross(R, A));
 	

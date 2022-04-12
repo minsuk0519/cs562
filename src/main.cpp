@@ -61,6 +61,19 @@ std::array<VertexBuffer, VERTEX_INDEX_MAX> vertexbuffers;
 
 std::array<Image*, IMAGE_INDEX_MAX> imagebuffers;
 
+//light probe
+constexpr unsigned int MAX_LIGHT_PROBE_UNIT = 8;
+constexpr unsigned int MAX_LIGHT_PROBE = MAX_LIGHT_PROBE_UNIT * MAX_LIGHT_PROBE_UNIT * MAX_LIGHT_PROBE_UNIT;
+unsigned int lightprobeSize_unit = 4;
+unsigned int lightprobeSize()
+{
+    return lightprobeSize_unit * lightprobeSize_unit * lightprobeSize_unit;
+}
+unsigned int lightprobeTexSize = 1024;
+unsigned int lightprobeCubemapTexSize = 256;
+std::array<lightprobe_proj, MAX_LIGHT_PROBE> lightprobesProj;
+float lightprobeDistant = 5.0f;
+
 //draw swapchain
 std::vector<Image> swapchainImages;
 VkColorSpaceKHR vulkanColorSpace;
@@ -365,7 +378,7 @@ void createDepth()
         }
     }
 
-    memPtr->create_depth_image(devicePtr, vulkanGraphicsQueue, vulkanDepthFormat, windowPtr->windowWidth, windowPtr->windowHeight, imagebuffers[IMAGE_INDEX_DEPTH]);
+    memPtr->create_depth_image(devicePtr, vulkanGraphicsQueue, vulkanDepthFormat, windowPtr->windowWidth, windowPtr->windowHeight, 1, imagebuffers[IMAGE_INDEX_DEPTH]);
 }
 
 void compileshader()
@@ -485,6 +498,21 @@ void createRenderpass()
     renderpass::create_framebuffer(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_AO], vulkanFramebuffers[render::RENDERPASS_AO], windowPtr->windowWidth, windowPtr->windowHeight, {
         imagebuffers[IMAGE_INDEX_AO]->imageView,
         });
+
+    //ambientocculusion pass
+    renderpass::create_renderpass(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_LIGHTPROBE], {
+        {imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE]->format, 0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, renderpass::ATTACHMENT_NONE},
+        {imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM]->format, 1, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, renderpass::ATTACHMENT_NONE},
+        {imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST]->format, 2, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, renderpass::ATTACHMENT_NONE},
+        {vulkanDepthFormat, 3, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, renderpass::ATTACHMENT_DEPTH},
+        });
+
+    renderpass::create_framebuffer(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_LIGHTPROBE], vulkanFramebuffers[render::RENDERPASS_LIGHTPROBE], lightprobeCubemapTexSize, lightprobeCubemapTexSize, {
+        imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE]->imageView,
+        imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM]->imageView,
+        imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST]->imageView,
+        imagebuffers[IMAGE_INDEX_LIGHTPROBE_DEPTH]->imageView,
+        });
 }
 
 void updatelightingdescriptorset(bool blur, bool aoblur)
@@ -523,18 +551,18 @@ void createdescriptorset()
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 5 },
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 15 },
         { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 4 },
-        });
+    });
 
     //gbuffer pass
     descriptor::create_descriptorset_layout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_GBUFFER], vulkanDescriptorSets[render::DESCRIPTOR_GBUFFER], vulkanDescriptorPool, {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 1},
-        });
+    });
 
     descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_GBUFFER], {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, {uniformbuffers[UNIFORM_INDEX_PROJECTION].buf, 0, uniformbuffers[UNIFORM_INDEX_PROJECTION].range}, {}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, {uniformbuffers[UNIFORM_INDEX_OBJECT].buf, 0, uniformbuffers[UNIFORM_INDEX_OBJECT].range}, {}},
-        });
+    });
 
     //lighting pass
     descriptor::create_descriptorset_layout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_LIGHT], vulkanDescriptorSets[render::DESCRIPTOR_LIGHT], vulkanDescriptorPool, {
@@ -565,7 +593,7 @@ void createdescriptorset()
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 4},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 5},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 6},
-        });
+    });
 
     descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_LOCAL_LIGHT], {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, {uniformbuffers[UNIFORM_INDEX_PROJECTION].buf, 0, uniformbuffers[UNIFORM_INDEX_PROJECTION].range}, {}},
@@ -575,55 +603,55 @@ void createdescriptorset()
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_ALBEDO]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 5, {uniformbuffers[UNIFORM_INDEX_CAMERA].buf, 0, uniformbuffers[UNIFORM_INDEX_CAMERA].range}, {}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 6, {uniformbuffers[UNIFORM_INDEX_LIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT].range}, {}},
-        });
+    });
 
     //diffuse obj
     descriptor::create_descriptorset_layout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_DIFFUSE], vulkanDescriptorSets[render::DESCRIPTOR_DIFFUSE], vulkanDescriptorPool, {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 1},
-        });
+    });
 
     descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_DIFFUSE], {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, {uniformbuffers[UNIFORM_INDEX_PROJECTION].buf, 0, uniformbuffers[UNIFORM_INDEX_PROJECTION].range}, {}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, {uniformbuffers[UNIFORM_INDEX_OBJECT].buf, 0, uniformbuffers[UNIFORM_INDEX_OBJECT].range}, {}},
-        });
+    });
 
     //shadowmapping
     descriptor::create_descriptorset_layout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_SHADOWMAP], vulkanDescriptorSets[render::DESCRIPTOR_SHADOWMAP], vulkanDescriptorPool, {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT, 1},
-        });
+    });
 
     descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_SHADOWMAP], {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, {uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].range}, {}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, {uniformbuffers[UNIFORM_INDEX_OBJECT].buf, 0, uniformbuffers[UNIFORM_INDEX_OBJECT].range}, {}},
-        });
+    });
 
     //blurshadow
     descriptor::create_descriptorset_layout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_SHADOWMAP_BLUR], vulkanDescriptorSets[render::DESCRIPTOR_SHADOWMAP_BLUR], vulkanDescriptorPool, {
         {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0},
         {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 2},
-        });
+    });
 
     descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_SHADOWMAP_BLUR], {
         {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_SHADOWMAP]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
         {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_SHADOWMAP_BLUR]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2, {uniformbuffers[UNIFORM_INDEX_GAUSSIANWEIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_GAUSSIANWEIGHT].range}, {}},
-        });
+    });
 
     //skydome
     descriptor::create_descriptorset_layout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_SKYDOME], vulkanDescriptorSets[render::DESCRIPTOR_SKYDOME], vulkanDescriptorPool, {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0},
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 2},
-        });
+    });
 
     descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_SKYDOME], {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, {uniformbuffers[UNIFORM_INDEX_PROJECTION].buf, 0, uniformbuffers[UNIFORM_INDEX_PROJECTION].range}, {}},
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_SKYDOME]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2, {uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].range}, {}},
-        });
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2, {uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING].range}, {}},
+    });
 
     //AO
     descriptor::create_descriptorset_layout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_AO], vulkanDescriptorSets[render::DESCRIPTOR_AO], vulkanDescriptorPool, {
@@ -631,7 +659,7 @@ void createdescriptorset()
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 2},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 3},
-        });
+    });
 
     descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_AO], {
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_POS]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
@@ -657,6 +685,19 @@ void createdescriptorset()
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_GBUFFER_NORM]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 4, {uniformbuffers[UNIFORM_INDEX_CAMERA].buf, 0, uniformbuffers[UNIFORM_INDEX_CAMERA].range}, {}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 5, {uniformbuffers[UNIFORM_INDEX_GAUSSIANWEIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_GAUSSIANWEIGHT].range}, {}},
+    });
+
+    //light probe map
+    descriptor::create_descriptorset_layout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_LIGHTPROBE_MAP], vulkanDescriptorSets[render::DESCRIPTOR_LIGHTPROBE_MAP], vulkanDescriptorPool, {
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_GEOMETRY_BIT, 1},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_FRAGMENT_BIT, 2},
+    });
+
+    descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_LIGHTPROBE_MAP], {
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 0, {uniformbuffers[UNIFORM_INDEX_OBJECT].buf, 0, uniformbuffers[UNIFORM_INDEX_OBJECT].range}, {}},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, {uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_PROJ].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_PROJ].range}, {}},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 2, {uniformbuffers[UNIFORM_INDEX_LIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT].range}, {}},
     });
 }
 
@@ -697,9 +738,9 @@ void createPipeline()
         pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
         pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
         pipeline::create_pipieline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_GBUFFER], vulkanPipelineCache, {
-                {"data/shaders/gbuffer.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-                {"data/shaders/gbuffer.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
-            });
+            {"data/shaders/gbuffer.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+            {"data/shaders/gbuffer.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
+        });
     }
 
     //lighting pass
@@ -736,9 +777,9 @@ void createPipeline()
         pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
         pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
         pipeline::create_pipieline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_LIHGT], vulkanPipelineCache, {
-                {"data/shaders/lighting.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-                {"data/shaders/lighting.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
-            });
+            {"data/shaders/lighting.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+            {"data/shaders/lighting.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
+        });
     }
 
     //local lighting pass
@@ -774,9 +815,9 @@ void createPipeline()
         pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
         pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
         pipeline::create_pipieline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_LOCAL_LIGHT], vulkanPipelineCache, {
-                {"data/shaders/locallights.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-                {"data/shaders/locallights.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
-            });
+            {"data/shaders/locallights.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+            {"data/shaders/locallights.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
+        });
     }
 
     //diffuse pass
@@ -812,9 +853,9 @@ void createPipeline()
         pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
         pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
         pipeline::create_pipieline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_DIFFUSE], vulkanPipelineCache, {
-                {"data/shaders/diffuse.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-                {"data/shaders/diffuse.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
-            });
+            {"data/shaders/diffuse.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+            {"data/shaders/diffuse.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
+        });
     }
 
     //shadowmap pass
@@ -850,9 +891,9 @@ void createPipeline()
         pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
         pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
         pipeline::create_pipieline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_SHADOWMAP], vulkanPipelineCache, {
-                {"data/shaders/shadowmapping.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-                {"data/shaders/shadowmapping.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
-            });
+            {"data/shaders/shadowmapping.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+            {"data/shaders/shadowmapping.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
+        });
     }
 
     //blur shadow pass
@@ -906,9 +947,9 @@ void createPipeline()
         pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
         pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
         pipeline::create_pipieline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_SKYDOME], vulkanPipelineCache, {
-                {"data/shaders/skydome.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-                {"data/shaders/skydome.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
-            });
+            {"data/shaders/skydome.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+            {"data/shaders/skydome.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
+        });
     }
 
     //AO pass
@@ -944,9 +985,9 @@ void createPipeline()
         pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
         pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
         pipeline::create_pipieline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_AO], vulkanPipelineCache, {
-                {"data/shaders/ambientocculusion.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-                {"data/shaders/ambientocculusion.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
-            });
+            {"data/shaders/ambientocculusion.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+            {"data/shaders/ambientocculusion.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
+        });
     }
 
     //blur AO pass
@@ -965,6 +1006,47 @@ void createPipeline()
 
         pipeline::create_compute_pipeline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_AO_BLUR_HORIZONTAL], vulkanPipelineCache,
             { "data/shaders/blurAO_horizontal.comp.spv", VK_SHADER_STAGE_COMPUTE_BIT });
+    }
+
+    //lightprobe mapping pass
+    {
+        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_LIGHTPROBE_MAP], vulkanPipelineLayouts[render::PIPELINE_LIGHTPROBE_MAP]);
+
+        VkGraphicsPipelineCreateInfo pipelineCreateInfo{};
+        pipelineCreateInfo.layout = vulkanPipelineLayouts[render::PIPELINE_LIGHTPROBE_MAP];
+        pipelineCreateInfo.renderPass = vulkanRenderpasses[render::RENDERPASS_LIGHTPROBE];
+
+        std::vector<VkVertexInputAttributeDescription> vertexinputs = {
+            { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 },
+            { 1, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 },
+            { 2, 0, VK_FORMAT_R32G32_SFLOAT, 0 },
+        };
+
+        VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo = pipeline::getInputAssemblyCreateInfo();
+        VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo = pipeline::getRasterizationCreateInfo(VK_CULL_MODE_BACK_BIT);
+        VkPipelineColorBlendAttachmentState pipelinecolorblendattachment = pipeline::getColorBlendAttachment(VK_FALSE);
+        std::vector<VkPipelineColorBlendAttachmentState> pipelinecolorblendattachments = { pipelinecolorblendattachment, pipelinecolorblendattachment, pipelinecolorblendattachment };
+        VkPipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo = pipeline::getColorBlendCreateInfo(static_cast<uint32_t>(pipelinecolorblendattachments.size()), pipelinecolorblendattachments.data());
+        VkPipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo = pipeline::getMultisampleCreateInfo(VK_SAMPLE_COUNT_1_BIT);
+        VkViewport viewport = pipeline::getViewport(lightprobeCubemapTexSize, lightprobeCubemapTexSize);
+        VkRect2D scissor = pipeline::getScissor(lightprobeCubemapTexSize, lightprobeCubemapTexSize);
+        VkPipelineViewportStateCreateInfo pipelineViewportStateCreateInfo = pipeline::getViewportCreateInfo(&viewport, &scissor);
+        VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo = pipeline::getDepthStencilCreateInfo(VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);
+        VkVertexInputBindingDescription pipelinevertexinputbinding = pipeline::getVertexinputbindingDescription(sizeof(glm::vec3) * 2 + sizeof(glm::vec2));
+        VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo = pipeline::getVertexinputAttributeDescription(&pipelinevertexinputbinding, vertexinputs);
+
+        pipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
+        pipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
+        pipelineCreateInfo.pColorBlendState = &pipelineColorBlendStateCreateInfo;
+        pipelineCreateInfo.pMultisampleState = &pipelineMultisampleStateCreateInfo;
+        pipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
+        pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
+        pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
+        pipeline::create_pipieline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_LIGHTPROBE_MAP], vulkanPipelineCache, {
+            {"data/shaders/lightProbeMapping.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+            {"data/shaders/lightProbeMapping.geom.spv", VK_SHADER_STAGE_GEOMETRY_BIT},
+            {"data/shaders/lightProbeMapping.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
+        });
     }
 }
 
@@ -1182,21 +1264,21 @@ void setupbuffer()
     local_light.push_back(light{ glm::vec3(3.25f,  0.6f, -6.0f), 0.5f, glm::vec3(0.0f, 0.0f, 0.0f), 0, glm::vec3(0.0f, 10.0f, 0.0f) });
     local_light.push_back(light{ glm::vec3(4.25f,  0.6f, -6.0f), 0.5f, glm::vec3(0.0f, 0.0f, 0.0f), 0, glm::vec3(0.0f, 10.0f, 0.0f) });
 
-    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, windowPtr->windowWidth, windowPtr->windowHeight, imagebuffers[IMAGE_INDEX_GBUFFER_POS]);
-    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, windowPtr->windowWidth, windowPtr->windowHeight, imagebuffers[IMAGE_INDEX_GBUFFER_NORM]);
-    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, windowPtr->windowWidth, windowPtr->windowHeight, imagebuffers[IMAGE_INDEX_GBUFFER_TEX]);
-    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R8G8B8A8_SNORM, windowPtr->windowWidth, windowPtr->windowHeight, imagebuffers[IMAGE_INDEX_GBUFFER_ALBEDO]);
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, windowPtr->windowWidth, windowPtr->windowHeight, 1, imagebuffers[IMAGE_INDEX_GBUFFER_POS]);
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, windowPtr->windowWidth, windowPtr->windowHeight, 1, imagebuffers[IMAGE_INDEX_GBUFFER_NORM]);
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, windowPtr->windowWidth, windowPtr->windowHeight, 1, imagebuffers[IMAGE_INDEX_GBUFFER_TEX]);
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R8G8B8A8_SNORM, windowPtr->windowWidth, windowPtr->windowHeight, 1, imagebuffers[IMAGE_INDEX_GBUFFER_ALBEDO]);
 
-    memPtr->create_fb_image(devicePtr->vulkanDevice, shadowmapFormat, shadowmapSize, shadowmapSize, imagebuffers[IMAGE_INDEX_SHADOWMAP]);
+    memPtr->create_fb_image(devicePtr->vulkanDevice, shadowmapFormat, shadowmapSize, shadowmapSize, 1, imagebuffers[IMAGE_INDEX_SHADOWMAP]);
     memPtr->transitionImage(devicePtr, vulkanGraphicsQueue, imagebuffers[IMAGE_INDEX_SHADOWMAP]->image, 1, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
-    memPtr->create_fb_image(devicePtr->vulkanDevice, shadowmapFormat, shadowmapSize, shadowmapSize, imagebuffers[IMAGE_INDEX_SHADOWMAP_BLUR]);
+    memPtr->create_fb_image(devicePtr->vulkanDevice, shadowmapFormat, shadowmapSize, shadowmapSize, 1, imagebuffers[IMAGE_INDEX_SHADOWMAP_BLUR]);
     memPtr->transitionImage(devicePtr, vulkanGraphicsQueue, imagebuffers[IMAGE_INDEX_SHADOWMAP_BLUR]->image, 1, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
-    memPtr->create_depth_image(devicePtr, vulkanGraphicsQueue, vulkanDepthFormat, shadowmapSize, shadowmapSize, imagebuffers[IMAGE_INDEX_SHADOWMAP_DEPTH]);
+    memPtr->create_depth_image(devicePtr, vulkanGraphicsQueue, vulkanDepthFormat, shadowmapSize, shadowmapSize, 1, imagebuffers[IMAGE_INDEX_SHADOWMAP_DEPTH]);
 
-    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R32_SFLOAT, windowPtr->windowWidth, windowPtr->windowHeight, imagebuffers[IMAGE_INDEX_AO]);
-    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R32_SFLOAT, windowPtr->windowWidth, windowPtr->windowHeight, imagebuffers[IMAGE_INDEX_AO_BLUR]);
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R32_SFLOAT, windowPtr->windowWidth, windowPtr->windowHeight, 1, imagebuffers[IMAGE_INDEX_AO]);
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R32_SFLOAT, windowPtr->windowWidth, windowPtr->windowHeight, 1, imagebuffers[IMAGE_INDEX_AO_BLUR]);
     memPtr->transitionImage(devicePtr, vulkanGraphicsQueue, imagebuffers[IMAGE_INDEX_AO_BLUR]->image, 1, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
     uint32_t miplevel;
@@ -1218,6 +1300,15 @@ void setupbuffer()
     
     memPtr->generate_filteredtex(devicePtr, vulkanGraphicsQueue, vulkanComputeQueue, imagebuffers[IMAGE_INDEX_SKYDOME], imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE], vulkanSamplers[SAMPLE_INDEX_NORMAL]);
     memPtr->create_sampler(devicePtr, vulkanSamplers[SAMPLE_INDEX_SKYDOME], miplevel);
+
+
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_B10G11R11_UFLOAT_PACK32, lightprobeTexSize, lightprobeTexSize, 1, imagebuffers[IMAGE_INDEX_LIGHTPROBE_RADIANCE]);
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, lightprobeCubemapTexSize, lightprobeCubemapTexSize, 6, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE]);
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R8G8_SNORM, lightprobeTexSize, lightprobeTexSize, 1, imagebuffers[IMAGE_INDEX_LIGHTPROBE_NORM]);
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R8G8B8A8_SNORM, lightprobeCubemapTexSize, lightprobeCubemapTexSize, 6, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM]);
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16_SFLOAT, lightprobeTexSize, lightprobeTexSize, 1, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST]);
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16_SFLOAT, lightprobeCubemapTexSize, lightprobeCubemapTexSize, 6, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST]);
+    memPtr->create_depth_image(devicePtr, vulkanGraphicsQueue, vulkanDepthFormat, lightprobeCubemapTexSize, lightprobeCubemapTexSize, 6, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DEPTH]);
 
     {
         std::vector<float> vertices = {
@@ -1329,7 +1420,7 @@ void setupbuffer()
         newobject->create_object(static_cast<unsigned int>(vertexdata.indices.size()), vertexbuffers[VERTEX_INDEX_SPHERE]);
         objects.push_back(newobject);
 
-        std::vector<helper::vertindex> dragondata = helper::readassimp("data/model/dragon.ply");
+        std::vector<helper::vertindex> dragondata = armadillodata;// helper::readassimp("data/model/dragon.ply");
         memPtr->create_vertex_index_buffer(devicePtr->vulkanDevice, vulkanGraphicsQueue, devicePtr, dragondata[0].vertices, dragondata[0].indices, vertexbuffers[VERTEX_INDEX_DRAGON]);
         newobject = new object();
         newobject->create_object(static_cast<unsigned int>(dragondata[0].indices.size()), vertexbuffers[VERTEX_INDEX_DRAGON]);
@@ -1352,6 +1443,7 @@ void setupbuffer()
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(HammersleyBlock)*/1616, 1, uniformbuffers[UNIFORM_INDEX_HAMMERSLEYBLOCK]);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(HammersleyBlock)*/1616, 1, uniformbuffers[UNIFORM_INDEX_GAUSSIANWEIGHT]);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(aoConstant), 1, uniformbuffers[UNIFORM_INDEX_AO_CONSTANT]);
+    memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(lightprobe_proj), MAX_LIGHT_PROBE, uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_PROJ]);
 
     {
         GaussianWeight weight;
@@ -1370,7 +1462,93 @@ void setupbuffer()
         vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_GAUSSIANWEIGHT].memory);
     }
 
+
+    glm::mat4 proj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 1000.0f);
+    //force it to right handed
+    proj[1][1] *= -1.0f;
+    unsigned int lightprobeSizeSquared = lightprobeSize_unit * lightprobeSize_unit;
+    for (unsigned int i = 0; i < lightprobeSize_unit; ++i)
+    {
+        for (unsigned int j = 0; j < lightprobeSize_unit; ++j)
+        {
+            for (unsigned int k = 0; k < lightprobeSize_unit; ++k)
+            {
+                float x = (i - lightprobeSize_unit / 2) * lightprobeDistant;
+                float y = j * lightprobeDistant;
+                glm::vec3 pos = glm::vec3(x, y, y);
+                lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].pos = pos;
+
+                lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].projs[0] = proj * glm::lookAtLH(pos, pos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
+                lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].projs[1] = proj * glm::lookAtLH(pos, pos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
+                lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].projs[2] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, -1.0));
+                lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].projs[3] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
+                lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].projs[4] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, 1.0, 0.0));
+                lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].projs[5] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, 1.0, 0.0));
+            }
+        }
+    }
+
     updatebuffer();
+
+    //prebuilt light probes
+    {
+        unsigned int probeSize = lightprobeSize();
+        for (int i = 0; i < probeSize; ++i)
+        {
+            VkCommandBufferBeginInfo commandBufferBeginInfo{};
+            commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+            std::array<VkClearValue, 5> gbufferclearValues;
+            gbufferclearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+            gbufferclearValues[1].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+            gbufferclearValues[2].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+            gbufferclearValues[4].depthStencil = { 1.0f, 0 };
+
+            VkRenderPassBeginInfo renderPassBeginInfo{};
+            renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+            renderPassBeginInfo.renderPass = vulkanRenderpasses[render::RENDERPASS_GBUFFER];
+            renderPassBeginInfo.renderArea.offset.x = 0;
+            renderPassBeginInfo.renderArea.offset.y = 0;
+            renderPassBeginInfo.renderArea.extent.width = windowPtr->windowWidth;
+            renderPassBeginInfo.renderArea.extent.height = windowPtr->windowHeight;
+            renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(gbufferclearValues.size());
+            renderPassBeginInfo.pClearValues = gbufferclearValues.data();
+            renderPassBeginInfo.framebuffer = vulkanFramebuffers[render::RENDERPASS_GBUFFER];
+
+            if (vkBeginCommandBuffer(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], &commandBufferBeginInfo) != VK_SUCCESS)
+            {
+                std::cout << "failed to begin command buffer!" << std::endl;
+                return -1;
+            }
+
+            vkCmdResetQueryPool(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_START, 2);
+            vkCmdWriteTimestamp(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_START);
+
+            vkCmdBeginRenderPass(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+            vkCmdBindPipeline(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelines[render::PIPELINE_GBUFFER]);
+
+            std::array<uint32_t, 1> dynamicoffsets = { 0 };
+
+            for (auto obj : objects)
+            {
+                vkCmdBindDescriptorSets(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelineLayouts[render::PIPELINE_GBUFFER], 0, 1,
+                    &vulkanDescriptorSets[render::PIPELINE_GBUFFER], static_cast<uint32_t>(dynamicoffsets.size()), dynamicoffsets.data());
+
+                obj->draw_object(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER]);
+                dynamicoffsets[0] += 128;
+            }
+
+            vkCmdEndRenderPass(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER]);
+
+            vkCmdWriteTimestamp(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_END);
+
+            if (vkEndCommandBuffer(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER]) != VK_SUCCESS)
+            {
+                std::cout << "failed to end commnad buffer!" << std::endl;
+                return -1;
+            }
+        }
+    }
 }
 
 void freebuffer()
