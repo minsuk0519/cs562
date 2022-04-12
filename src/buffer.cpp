@@ -133,7 +133,7 @@ bool memory::create_vertex_index_buffer(VkDevice vulkandevice, VkQueue graphicsq
     return true;
 }
 
-bool memory::create_depth_image(device* devicePtr, VkQueue graphicsqueue, VkFormat depthformat, uint32_t width, uint32_t height, uint32_t layer, Image*& image)
+bool memory::create_depth_image(device* devicePtr, VkQueue /*graphicsqueue*/, VkFormat depthformat, uint32_t width, uint32_t height, uint32_t layer, Image*& image)
 {
     image = new Image();
 
@@ -161,6 +161,7 @@ bool memory::create_depth_image(device* devicePtr, VkQueue graphicsqueue, VkForm
     image->format = depthformat;
     image->width = width;
     image->height = height;
+    image->layer = layer;
 
     VkMemoryRequirements memReqs{};
     vkGetImageMemoryRequirements(vulkandevice, image->image, &memReqs);
@@ -211,13 +212,13 @@ bool memory::create_depth_image(device* devicePtr, VkQueue graphicsqueue, VkForm
 
     VkImageViewCreateInfo imageviewCreateInfo{};
     imageviewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    imageviewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    imageviewCreateInfo.viewType = (layer > 1) ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D;
     imageviewCreateInfo.image = image->image;
     imageviewCreateInfo.format = depthformat;
     imageviewCreateInfo.subresourceRange.baseMipLevel = 0;
     imageviewCreateInfo.subresourceRange.levelCount = 1;
     imageviewCreateInfo.subresourceRange.baseArrayLayer = 0;
-    imageviewCreateInfo.subresourceRange.layerCount = 1;
+    imageviewCreateInfo.subresourceRange.layerCount = layer;
     imageviewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 
     if (depthformat >= VK_FORMAT_D16_UNORM_S8_UINT)
@@ -261,6 +262,7 @@ bool memory::create_fb_image(VkDevice vulkandevice, VkFormat format, uint32_t wi
     image->format = format;
     image->width = width;
     image->height = height;
+    image->layer = layer;
 
     VkMemoryRequirements memReqs{};
     vkGetImageMemoryRequirements(vulkandevice, image->image, &memReqs);
@@ -283,7 +285,7 @@ bool memory::create_fb_image(VkDevice vulkandevice, VkFormat format, uint32_t wi
 
     VkImageViewCreateInfo imageviewCreateInfo{};
     imageviewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    imageviewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    imageviewCreateInfo.viewType = (layer > 1) ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D;
     imageviewCreateInfo.format = format;
     imageviewCreateInfo.image = image->image;
     imageviewCreateInfo.subresourceRange = {};
@@ -291,7 +293,7 @@ bool memory::create_fb_image(VkDevice vulkandevice, VkFormat format, uint32_t wi
     imageviewCreateInfo.subresourceRange.baseMipLevel = 0;
     imageviewCreateInfo.subresourceRange.levelCount = 1;
     imageviewCreateInfo.subresourceRange.baseArrayLayer = 0;
-    imageviewCreateInfo.subresourceRange.layerCount = 1;
+    imageviewCreateInfo.subresourceRange.layerCount = layer;
 
     if (vkCreateImageView(vulkandevice, &imageviewCreateInfo, nullptr, &image->imageView) != VK_SUCCESS)
     {
@@ -401,6 +403,7 @@ bool memory::load_texture_image(device* devicePtr, VkQueue graphicsqueue, std::s
     image->format = imageCreateInfo.format;
     image->width = texWidth;
     image->height = texHeight;
+    image->layer = 1;
 
     VkMemoryRequirements memReqs{};
     vkGetImageMemoryRequirements(devicePtr->vulkanDevice, image->image, &memReqs);
@@ -613,8 +616,6 @@ void memory::generate_filteredtex(device* devicePtr, VkQueue graphicsqueue, VkQu
         &descriptorset, 0, 0);
 
     vkCmdDispatch(commandBuffer, target->width, target->height, 1);
-
-    VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
 
     devicePtr->end_commandbuffer_submit(computequeue, commandBuffer, true);
 

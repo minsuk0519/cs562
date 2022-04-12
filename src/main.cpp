@@ -15,6 +15,7 @@
 #include <vector>
 #include <iostream>
 #include <array>
+#include <map>
 
 #include "uniforms.hpp"
 #include "debug.hpp"
@@ -83,7 +84,7 @@ std::vector<VkFence> vulkanWaitFences;
 VkDescriptorPool vulkanDescriptorPool = VK_NULL_HANDLE;
 
 std::vector<VkCommandBuffer> vulkanCommandBuffers;
-std::vector<VkFramebuffer> vulkanFramebuffers;
+std::map<render::FRAMEBUFFER_INDEX, VkFramebuffer> vulkanFramebuffers;
 
 std::array<VkCommandBuffer, render::COMPUTECMDBUFFER_MAX> vulkanComputeCommandBuffers;
 std::array<VkDescriptorSetLayout, render::DESCRIPTOR_MAX> vulkanDescriptorSetLayouts;
@@ -458,12 +459,11 @@ void createRenderpass()
         {vulkanDepthFormat, 1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, renderpass::ATTACHMENT_DEPTH | renderpass::ATTACHMENT_NO_CLEAR_INITIAL},
     });
 
-    vulkanFramebuffers.resize(render::RENDERPASS_SWAPCHAIN + swapchainImageCount);
     for (uint32_t i = 0; i < swapchainImageCount; i++)
     {
-        renderpass::create_framebuffer(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_SWAPCHAIN], vulkanFramebuffers[render::RENDERPASS_SWAPCHAIN + i], windowPtr->windowWidth, windowPtr->windowHeight, {
-        swapchainImages[i].imageView, imagebuffers[IMAGE_INDEX_DEPTH]->imageView
-            });
+        renderpass::create_framebuffer(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_SWAPCHAIN], vulkanFramebuffers[(render::FRAMEBUFFER_INDEX)(render::FRAMEBUFFER_SWAPCHAIN + i)], {
+            &swapchainImages[i], imagebuffers[IMAGE_INDEX_DEPTH]
+        });
     }
 
     //gbuffer pass
@@ -475,9 +475,9 @@ void createRenderpass()
         {vulkanDepthFormat, 4, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, renderpass::ATTACHMENT_DEPTH},
     });
 
-    renderpass::create_framebuffer(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_GBUFFER], vulkanFramebuffers[render::RENDERPASS_GBUFFER], windowPtr->windowWidth, windowPtr->windowHeight, {
-        imagebuffers[IMAGE_INDEX_GBUFFER_POS]->imageView, imagebuffers[IMAGE_INDEX_GBUFFER_NORM]->imageView, imagebuffers[IMAGE_INDEX_GBUFFER_TEX]->imageView, 
-        imagebuffers[IMAGE_INDEX_GBUFFER_ALBEDO]->imageView, imagebuffers[IMAGE_INDEX_DEPTH]->imageView
+    renderpass::create_framebuffer(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_GBUFFER], vulkanFramebuffers[render::FRAMEBUFFER_GBUFFER], {
+        imagebuffers[IMAGE_INDEX_GBUFFER_POS], imagebuffers[IMAGE_INDEX_GBUFFER_NORM], imagebuffers[IMAGE_INDEX_GBUFFER_TEX], 
+        imagebuffers[IMAGE_INDEX_GBUFFER_ALBEDO], imagebuffers[IMAGE_INDEX_DEPTH]
     });
 
     //shadowmap pass
@@ -486,8 +486,8 @@ void createRenderpass()
         {vulkanDepthFormat, 1, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, renderpass::ATTACHMENT_DEPTH},
     });
 
-    renderpass::create_framebuffer(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_SHADOWMAP], vulkanFramebuffers[render::RENDERPASS_SHADOWMAP], shadowmapSize, shadowmapSize, {
-        imagebuffers[IMAGE_INDEX_SHADOWMAP]->imageView, imagebuffers[IMAGE_INDEX_SHADOWMAP_DEPTH]->imageView
+    renderpass::create_framebuffer(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_SHADOWMAP], vulkanFramebuffers[render::FRAMEBUFFER_SHADOWMAP], {
+        imagebuffers[IMAGE_INDEX_SHADOWMAP], imagebuffers[IMAGE_INDEX_SHADOWMAP_DEPTH]
     });
 
     //ambientocculusion pass
@@ -495,9 +495,9 @@ void createRenderpass()
         {imagebuffers[IMAGE_INDEX_AO]->format, 0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, renderpass::ATTACHMENT_NONE},
     });
 
-    renderpass::create_framebuffer(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_AO], vulkanFramebuffers[render::RENDERPASS_AO], windowPtr->windowWidth, windowPtr->windowHeight, {
-        imagebuffers[IMAGE_INDEX_AO]->imageView,
-        });
+    renderpass::create_framebuffer(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_AO], vulkanFramebuffers[render::FRAMEBUFFER_AO], {
+        imagebuffers[IMAGE_INDEX_AO],
+    });
 
     //ambientocculusion pass
     renderpass::create_renderpass(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_LIGHTPROBE], {
@@ -505,14 +505,14 @@ void createRenderpass()
         {imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM]->format, 1, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, renderpass::ATTACHMENT_NONE},
         {imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST]->format, 2, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, renderpass::ATTACHMENT_NONE},
         {vulkanDepthFormat, 3, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, renderpass::ATTACHMENT_DEPTH},
-        });
+    });
 
-    renderpass::create_framebuffer(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_LIGHTPROBE], vulkanFramebuffers[render::RENDERPASS_LIGHTPROBE], lightprobeCubemapTexSize, lightprobeCubemapTexSize, {
-        imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE]->imageView,
-        imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM]->imageView,
-        imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST]->imageView,
-        imagebuffers[IMAGE_INDEX_LIGHTPROBE_DEPTH]->imageView,
-        });
+    renderpass::create_framebuffer(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_LIGHTPROBE], vulkanFramebuffers[render::FRAMEBUFFER_LIGHTPROBE], {
+        imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE],
+        imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM],
+        imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST],
+        imagebuffers[IMAGE_INDEX_LIGHTPROBE_DEPTH],
+    });
 }
 
 void updatelightingdescriptorset(bool blur, bool aoblur)
@@ -1492,7 +1492,7 @@ void setupbuffer()
 
     //prebuilt light probes
     {
-        unsigned int probeSize = lightprobeSize();
+        /*unsigned int probeSize = lightprobeSize();
         for (int i = 0; i < probeSize; ++i)
         {
             VkCommandBufferBeginInfo commandBufferBeginInfo{};
@@ -1547,7 +1547,7 @@ void setupbuffer()
                 std::cout << "failed to end commnad buffer!" << std::endl;
                 return -1;
             }
-        }
+        }*/
     }
 }
 
@@ -1687,7 +1687,7 @@ void close()
 
     for (auto& framebuffer : vulkanFramebuffers)
     {
-        renderpass::close_framebuffer(devicePtr->vulkanDevice, framebuffer);
+        renderpass::close_framebuffer(devicePtr->vulkanDevice, framebuffer.second);
     }
 
     for (auto& renderpass : vulkanRenderpasses)
@@ -1747,7 +1747,7 @@ int main(void)
         updatebuffer();
 
         vkAcquireNextImageKHR(devicePtr->vulkanDevice, vulkanSwapchain, UINT64_MAX, vulkanSemaphores[render::SEMAPHORE_PRESENT], 0, &imageIndex);
-        uint32_t framebufferindex = render::RENDERPASS_SWAPCHAIN + imageIndex;
+        render::FRAMEBUFFER_INDEX framebufferindex = (render::FRAMEBUFFER_INDEX)(render::FRAMEBUFFER_SWAPCHAIN + imageIndex);
         uint32_t commandbufferindex = render::COMMANDBUFFER_SWAPCHAIN + imageIndex;
 
         guiPtr->pre_upate();
@@ -1938,7 +1938,7 @@ int main(void)
             renderPassBeginInfo.renderArea.extent.height = windowPtr->windowHeight;
             renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(gbufferclearValues.size());
             renderPassBeginInfo.pClearValues = gbufferclearValues.data();
-            renderPassBeginInfo.framebuffer = vulkanFramebuffers[render::RENDERPASS_GBUFFER];
+            renderPassBeginInfo.framebuffer = vulkanFramebuffers[render::FRAMEBUFFER_GBUFFER];
 
             if (vkBeginCommandBuffer(vulkanCommandBuffers[render::COMMANDBUFFER_GBUFFER], &commandBufferBeginInfo) != VK_SUCCESS)
             {
@@ -1993,7 +1993,7 @@ int main(void)
             renderPassBeginInfo.renderArea.extent.height = shadowmapSize;
             renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(shadowmapclearValues.size());
             renderPassBeginInfo.pClearValues = shadowmapclearValues.data();
-            renderPassBeginInfo.framebuffer = vulkanFramebuffers[render::RENDERPASS_SHADOWMAP];
+            renderPassBeginInfo.framebuffer = vulkanFramebuffers[render::FRAMEBUFFER_SHADOWMAP];
 
             if (vkBeginCommandBuffer(vulkanCommandBuffers[render::COMMANDBUFFER_SHADOWMAP], &commandBufferBeginInfo) != VK_SUCCESS)
             {
@@ -2172,7 +2172,7 @@ int main(void)
             renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());;
             renderPassBeginInfo.pClearValues = clearValues.data();
             renderPassBeginInfo.renderPass = vulkanRenderpasses[render::RENDERPASS_AO];
-            renderPassBeginInfo.framebuffer = vulkanFramebuffers[render::RENDERPASS_AO];
+            renderPassBeginInfo.framebuffer = vulkanFramebuffers[render::FRAMEBUFFER_AO];
 
             if (vkBeginCommandBuffer(vulkanCommandBuffers[render::COMMANDBUFFER_AO], &commandBufferBeginInfo) != VK_SUCCESS)
             {

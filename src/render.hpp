@@ -54,7 +54,7 @@ namespace renderpass
 	};
 
 	bool create_renderpass(VkDevice device, VkRenderPass& renderpass, std::vector<attachmentDesc> attachmentDescriptions);
-	bool create_framebuffer(VkDevice device, VkRenderPass renderpass, VkFramebuffer& framebuffer, uint32_t width, uint32_t height, std::vector<VkImageView> imageviews);
+	bool create_framebuffer(VkDevice device, VkRenderPass renderpass, VkFramebuffer& framebuffer, std::vector<Image*> images);
 
 	void close_renderpass(VkDevice device, VkRenderPass& renderpass);
 	void close_framebuffer(VkDevice device, VkFramebuffer& framebuffer);
@@ -148,17 +148,6 @@ namespace render
 		RENDERPASS_MAX,
 	};
 
-	//=======vector=======
-	//commandbuffer
-	enum COMMANDBUFFER_INDEX
-	{
-		COMMANDBUFFER_GBUFFER = 0,
-		COMMANDBUFFER_SHADOWMAP,
-		COMMANDBUFFER_AO,
-		COMMANDBUFFER_SWAPCHAIN,
-		COMMANDBUFFER_MAX,
-	};
-
 	//compute command buffer
 	enum COMPUTECMDBUFFER_INDEX
 	{
@@ -169,14 +158,24 @@ namespace render
 		COMPUTECMDBUFFER_MAX,
 	};
 
+	//=======vector=======
+	//commandbuffer
+	enum COMMANDBUFFER_INDEX
+	{
+		COMMANDBUFFER_GBUFFER = 0,
+		COMMANDBUFFER_SHADOWMAP,
+		COMMANDBUFFER_AO,
+		COMMANDBUFFER_SWAPCHAIN,
+	};
+
 	//framebuffer
+	//assume there will be no larger than 10 swapchain images on device
 	enum FRAMEBUFFER_INDEX
 	{
 		FRAMEBUFFER_GBUFFER = 0,
 		FRAMEBUFFER_SHADOWMAP,
 		FRAMEBUFFER_AO,
-		FRAMEBUFFER_LIGHTPROBE,
 		FRAMEBUFFER_SWAPCHAIN,
-		FRAMEBUFFER_MAX,
+		FRAMEBUFFER_LIGHTPROBE = FRAMEBUFFER_SWAPCHAIN + 10
 	};
 }

@@ -299,17 +299,28 @@ bool renderpass::create_renderpass(VkDevice device, VkRenderPass& renderpass, st
     return true;
 }
 
-bool renderpass::create_framebuffer(VkDevice device, VkRenderPass renderpass, VkFramebuffer& framebuffer, uint32_t width, uint32_t height, std::vector<VkImageView> imageviews)
+bool renderpass::create_framebuffer(VkDevice device, VkRenderPass renderpass, VkFramebuffer& framebuffer, std::vector<Image*> images)
 {
     VkFramebufferCreateInfo frameBufferCreateInfo = {};
     frameBufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     frameBufferCreateInfo.pNext = NULL;
     frameBufferCreateInfo.renderPass = renderpass;
-    frameBufferCreateInfo.attachmentCount = static_cast<uint32_t>(imageviews.size());
+    frameBufferCreateInfo.attachmentCount = static_cast<uint32_t>(images.size());
+    std::vector<VkImageView> imageviews;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    uint32_t layer = 0;
+    for (Image* image : images)
+    {
+        imageviews.push_back(image->imageView);
+        width = image->width;
+        height = image->height;
+        layer = image->layer;
+    }
     frameBufferCreateInfo.pAttachments = imageviews.data();
     frameBufferCreateInfo.width = width;
     frameBufferCreateInfo.height = height;
-    frameBufferCreateInfo.layers = 1;
+    frameBufferCreateInfo.layers = layer;
 
     if (vkCreateFramebuffer(device, &frameBufferCreateInfo, nullptr, &framebuffer) != VK_SUCCESS)
     {
