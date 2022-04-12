@@ -75,16 +75,6 @@ unsigned int lightprobeCubemapTexSize = 256;
 std::array<lightprobe_proj, MAX_LIGHT_PROBE> lightprobesProj;
 float lightprobeDistant = 5.0f;
 
-enum LIGHTPROBE_CUBEMAP_INDEX
-{
-    LIGHTPROBE_CUBEMAP_RADIANCE,
-    LIGHTPROBE_CUBEMAP_NORM,
-    LIGHTPROBE_CUBEMAP_DIST,
-    LIGHTPROBE_CUBEMAP_MAX,
-};
-
-std::array<std::array<Image*, MAX_LIGHT_PROBE>, LIGHTPROBE_CUBEMAP_MAX> ligtprobeCubeMapImage;
-
 //draw swapchain
 std::vector<Image> swapchainImages;
 VkColorSpaceKHR vulkanColorSpace;
@@ -511,20 +501,16 @@ void createRenderpass()
 
     //lightprobe pass
     renderpass::create_renderpass(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_LIGHTPROBE], {
-        {ligtprobeCubeMapImage[LIGHTPROBE_CUBEMAP_RADIANCE][0]->format, 0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, renderpass::ATTACHMENT_NONE},
-        {ligtprobeCubeMapImage[LIGHTPROBE_CUBEMAP_NORM][0]->format, 1, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, renderpass::ATTACHMENT_NONE},
-        {ligtprobeCubeMapImage[LIGHTPROBE_CUBEMAP_DIST][0]->format, 2, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, renderpass::ATTACHMENT_NONE},
+        {imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE]->format, 0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, renderpass::ATTACHMENT_NONE},
+        {imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM]->format, 1, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, renderpass::ATTACHMENT_NONE},
+        {imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST]->format, 2, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, renderpass::ATTACHMENT_NONE},
         {vulkanDepthFormat, 3, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, renderpass::ATTACHMENT_DEPTH},
     });
 
-    unsigned int size = lightprobeSize();
-    for (unsigned int i = 0; i < size; ++i)
-    {
-        renderpass::create_framebuffer(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_LIGHTPROBE], vulkanFramebuffers[(render::FRAMEBUFFER_INDEX)(render::FRAMEBUFFER_LIGHTPROBE + i)], {
-            ligtprobeCubeMapImage[LIGHTPROBE_CUBEMAP_RADIANCE][i], ligtprobeCubeMapImage[LIGHTPROBE_CUBEMAP_NORM][i],
-            ligtprobeCubeMapImage[LIGHTPROBE_CUBEMAP_DIST][i], imagebuffers[IMAGE_INDEX_LIGHTPROBE_DEPTH],
-        });
-    }
+    renderpass::create_framebuffer(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_LIGHTPROBE], vulkanFramebuffers[render::FRAMEBUFFER_LIGHTPROBE], {
+        imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE], imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM],
+        imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST], imagebuffers[IMAGE_INDEX_LIGHTPROBE_DEPTH],
+    });
 }
 
 void updatelightingdescriptorset(bool blur, bool aoblur)
@@ -1318,15 +1304,11 @@ void setupbuffer()
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R8G8_SNORM, lightprobeTexSize, lightprobeTexSize, 1, imagebuffers[IMAGE_INDEX_LIGHTPROBE_NORM]);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16_SFLOAT, lightprobeTexSize, lightprobeTexSize, 1, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST]);
 
-    unsigned int size = lightprobeSize();
-    for (int i = 0; i < size; ++i)
-    {
-        memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, lightprobeCubemapTexSize, lightprobeCubemapTexSize, 6, ligtprobeCubeMapImage[LIGHTPROBE_CUBEMAP_RADIANCE][i]);
-        memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, lightprobeCubemapTexSize, lightprobeCubemapTexSize, 6, ligtprobeCubeMapImage[LIGHTPROBE_CUBEMAP_NORM][i]);
-        memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16_SFLOAT, lightprobeCubemapTexSize, lightprobeCubemapTexSize, 6, ligtprobeCubeMapImage[LIGHTPROBE_CUBEMAP_DIST][i]);
-    }
-
-    memPtr->create_depth_image(devicePtr, vulkanGraphicsQueue, vulkanDepthFormat, lightprobeCubemapTexSize, lightprobeCubemapTexSize, 6, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DEPTH]);
+    uint32_t size = lightprobeSize() * 6;
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, lightprobeCubemapTexSize, lightprobeCubemapTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE]);
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, lightprobeCubemapTexSize, lightprobeCubemapTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM]);
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16_SFLOAT, lightprobeCubemapTexSize, lightprobeCubemapTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST]);
+    memPtr->create_depth_image(devicePtr, vulkanGraphicsQueue, vulkanDepthFormat, lightprobeCubemapTexSize, lightprobeCubemapTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DEPTH]);
 
     {
         std::vector<float> vertices = {
@@ -1498,18 +1480,24 @@ void setupbuffer()
                     float y = j * lightprobeDistant;
                     glm::vec3 pos = glm::vec3(x, y, y);
                     //glm::vec3 pos = glm::vec3(0.75f, 2.25f, -5.5f);
-                    lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].pos = pos;
+                    lightprobe_proj lightprobeProjection;
 
-                    lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].projs[0] = proj * glm::lookAtLH(pos, pos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
-                    lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].projs[1] = proj * glm::lookAtLH(pos, pos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
-                    lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].projs[2] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, -1.0));
-                    lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].projs[3] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
-                    lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].projs[4] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, 1.0, 0.0));
-                    lightprobesProj[i * lightprobeSizeSquared + j * lightprobeSize_unit + k].projs[5] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, 1.0, 0.0));
+                    lightprobeProjection.pos = pos;
+
+                    lightprobeProjection.projs[0] = proj * glm::lookAtLH(pos, pos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
+                    lightprobeProjection.projs[1] = proj * glm::lookAtLH(pos, pos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
+                    lightprobeProjection.projs[2] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, -1.0));
+                    lightprobeProjection.projs[3] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
+                    lightprobeProjection.projs[4] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, 1.0, 0.0));
+                    lightprobeProjection.projs[5] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, 1.0, 0.0));
+
+                    lightprobeProjection.id = i * lightprobeSizeSquared + j * lightprobeSize_unit + k;
 
                     void* data;
                     vkMapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_PROJ].memory, offset, uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_PROJ].range, 0, &data);
-                    memcpy(data, lightprobesProj.data(), uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_PROJ].range);
+                    memcpy(data, &lightprobeProjection, 400);
+                    memcpy(static_cast<char*>(data) + 400, &lightprobeProjection.id, 4);
+
                     vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_PROJ].memory);
                     offset += uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_PROJ].range;
                 }
@@ -1524,43 +1512,43 @@ void bakelightprobe()
 {
     //prebuilt light probes
     {
+        VkCommandBufferBeginInfo commandBufferBeginInfo{};
+        commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+        std::array<VkClearValue, 4> lightprobeclearValues;
+        lightprobeclearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+        lightprobeclearValues[1].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+        lightprobeclearValues[2].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+        lightprobeclearValues[3].depthStencil = { 1.0f, 0 };
+
+        VkRenderPassBeginInfo renderPassBeginInfo{};
+        renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        renderPassBeginInfo.renderPass = vulkanRenderpasses[render::RENDERPASS_LIGHTPROBE];
+        renderPassBeginInfo.renderArea.offset.x = 0;
+        renderPassBeginInfo.renderArea.offset.y = 0;
+        renderPassBeginInfo.renderArea.extent.width = lightprobeCubemapTexSize;
+        renderPassBeginInfo.renderArea.extent.height = lightprobeCubemapTexSize;
+        renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(lightprobeclearValues.size());
+        renderPassBeginInfo.pClearValues = lightprobeclearValues.data();
+        renderPassBeginInfo.framebuffer = vulkanFramebuffers[render::FRAMEBUFFER_LIGHTPROBE];
+
+        if (vkBeginCommandBuffer(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], &commandBufferBeginInfo) != VK_SUCCESS)
+        {
+            std::cout << "failed to begin command buffer!" << std::endl;
+        }
+
+        //vkCmdResetQueryPool(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_START, 2);
+        //vkCmdWriteTimestamp(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_START);
+
+        vkCmdBeginRenderPass(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdBindPipeline(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelines[render::PIPELINE_LIGHTPROBE_MAP]);
+
+
         unsigned int probeSize = lightprobeSize();
         std::array<uint32_t, 3> dynamicoffsets = { 0, 0, 0 };
 
         for (unsigned int i = 0; i < probeSize; ++i)
         {
-            VkCommandBufferBeginInfo commandBufferBeginInfo{};
-            commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-            std::array<VkClearValue, 4> lightprobeclearValues;
-            lightprobeclearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-            lightprobeclearValues[1].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-            lightprobeclearValues[2].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-            lightprobeclearValues[3].depthStencil = { 1.0f, 0 };
-
-            VkRenderPassBeginInfo renderPassBeginInfo{};
-            renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-            renderPassBeginInfo.renderPass = vulkanRenderpasses[render::RENDERPASS_LIGHTPROBE];
-            renderPassBeginInfo.renderArea.offset.x = 0;
-            renderPassBeginInfo.renderArea.offset.y = 0;
-            renderPassBeginInfo.renderArea.extent.width = lightprobeCubemapTexSize;
-            renderPassBeginInfo.renderArea.extent.height = lightprobeCubemapTexSize;
-            renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(lightprobeclearValues.size());
-            renderPassBeginInfo.pClearValues = lightprobeclearValues.data();
-            renderPassBeginInfo.framebuffer = vulkanFramebuffers[(render::FRAMEBUFFER_INDEX)(render::FRAMEBUFFER_LIGHTPROBE + i)];
-
-            if (vkBeginCommandBuffer(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], &commandBufferBeginInfo) != VK_SUCCESS)
-            {
-                std::cout << "failed to begin command buffer!" << std::endl;
-            }
-
-            //vkCmdResetQueryPool(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_START, 2);
-            //vkCmdWriteTimestamp(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_START);
-
-            vkCmdBeginRenderPass(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-            vkCmdBindPipeline(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelines[render::PIPELINE_LIGHTPROBE_MAP]);
-
-
             dynamicoffsets[0] = 0;
             for (auto obj : objects)
             {
@@ -1571,36 +1559,36 @@ void bakelightprobe()
                 dynamicoffsets[0] += 128;
             }
             dynamicoffsets[1] += static_cast<uint32_t>(uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_PROJ].range);
-
-            vkCmdEndRenderPass(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE]);
-
-            //vkCmdWriteTimestamp(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_END);
-
-            if (vkEndCommandBuffer(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE]) != VK_SUCCESS)
-            {
-                std::cout << "failed to end commnad buffer!" << std::endl;
-            }
-
-            std::array<VkCommandBuffer, 1> submitcommandbuffers = { vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE] };
-
-            VkSubmitInfo submitInfo{};
-            submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-            VkPipelineStageFlags pipelinestageFlag = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-            std::array<VkPipelineStageFlags, 1> pipelinestageFlags = { pipelinestageFlag };
-            submitInfo.pWaitDstStageMask = &pipelinestageFlag;
-            submitInfo.waitSemaphoreCount = 0;
-            submitInfo.pWaitSemaphores = 0;
-            submitInfo.signalSemaphoreCount = 0;
-            submitInfo.pSignalSemaphores = 0;
-            submitInfo.commandBufferCount = static_cast<uint32_t>(submitcommandbuffers.size());
-            submitInfo.pCommandBuffers = submitcommandbuffers.data();
-            if (vkQueueSubmit(vulkanGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
-            {
-                std::cout << "failed to submit queue" << std::endl;
-            }
-
-            vkQueueWaitIdle(vulkanGraphicsQueue);
         }
+
+        vkCmdEndRenderPass(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE]);
+
+        //vkCmdWriteTimestamp(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_END);
+
+        if (vkEndCommandBuffer(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE]) != VK_SUCCESS)
+        {
+            std::cout << "failed to end commnad buffer!" << std::endl;
+        }
+
+        std::array<VkCommandBuffer, 1> submitcommandbuffers = { vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE] };
+
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        VkPipelineStageFlags pipelinestageFlag = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        std::array<VkPipelineStageFlags, 1> pipelinestageFlags = { pipelinestageFlag };
+        submitInfo.pWaitDstStageMask = &pipelinestageFlag;
+        submitInfo.waitSemaphoreCount = 0;
+        submitInfo.pWaitSemaphores = 0;
+        submitInfo.signalSemaphoreCount = 0;
+        submitInfo.pSignalSemaphores = 0;
+        submitInfo.commandBufferCount = static_cast<uint32_t>(submitcommandbuffers.size());
+        submitInfo.pCommandBuffers = submitcommandbuffers.data();
+        if (vkQueueSubmit(vulkanGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
+        {
+            std::cout << "failed to submit queue" << std::endl;
+        }
+
+        vkQueueWaitIdle(vulkanGraphicsQueue);
     }
 }
 
@@ -1621,15 +1609,6 @@ void freebuffer()
     {
         memPtr->free_image(devicePtr->vulkanDevice, image);
         delete image;
-    }
-
-    for (std::array<Image*, MAX_LIGHT_PROBE>& images : ligtprobeCubeMapImage)
-    {
-        for (Image*& image : images)
-        {
-            memPtr->free_image(devicePtr->vulkanDevice, image);
-            delete image;
-        }
     }
 }
 

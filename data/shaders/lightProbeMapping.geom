@@ -23,9 +23,9 @@ void main()
 	{
 		for(int i = 0; i < 3; ++i)
 		{
-			gl_Layer = face;
+			gl_Layer = face + 6 * id;
 			wPosition = gl_in[i].gl_Position.xyz;
-			gl_Position = probeMat[face + 6 * id] * vec4(wPosition, 1.0);
+			gl_Position = probeMat[face] * vec4(wPosition, 1.0);
 						
 			probePosition = position;
 			wNormal = outNormal[i];
