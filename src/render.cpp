@@ -7,7 +7,7 @@
 
 #include <glm/glm.hpp>
 
-bool pipeline::create_pipieline(VkDevice device, VkGraphicsPipelineCreateInfo& pipelineCreateInfo, VkPipeline& pipeline, VkPipelineCache pipelinecache, std::vector<shaderinput> shaderinfos)
+bool pipeline::create_pipeline(VkDevice device, VkGraphicsPipelineCreateInfo& pipelineCreateInfo, VkPipeline& pipeline, VkPipelineCache pipelinecache, std::vector<shaderinput> shaderinfos)
 {
     pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipelineCreateInfo.flags = 0;
@@ -59,12 +59,14 @@ bool pipeline::create_compute_pipeline(VkDevice device, VkComputePipelineCreateI
     return true;
 }
 
-bool pipeline::create_pipelinelayout(VkDevice device, VkDescriptorSetLayout descriptorsetlayout, VkPipelineLayout& pipelinelayout)
+bool pipeline::create_pipelinelayout(VkDevice device, VkDescriptorSetLayout descriptorsetlayout, VkPipelineLayout& pipelinelayout, std::vector<VkPushConstantRange> pushconstants)
 {
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{};
     pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutCreateInfo.setLayoutCount = 1;
     pipelineLayoutCreateInfo.pSetLayouts = &descriptorsetlayout;
+    pipelineLayoutCreateInfo.pushConstantRangeCount = static_cast<uint32_t>(pushconstants.size());
+    pipelineLayoutCreateInfo.pPushConstantRanges = pushconstants.data();
 
     if (vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, VK_NULL_HANDLE, &pipelinelayout) != VK_SUCCESS)
     {

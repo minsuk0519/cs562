@@ -70,8 +70,8 @@ unsigned int lightprobeSize()
 {
     return lightprobeSize_unit * lightprobeSize_unit * lightprobeSize_unit;
 }
-unsigned int lightprobeTexSize = 1024;
-unsigned int lightprobeCubemapTexSize = 256;
+unsigned int lightprobeTexSize = 512;
+unsigned int lightprobeCubemapTexSize = 1024;
 std::array<lightprobe_proj, MAX_LIGHT_PROBE> lightprobesProj;
 float lightprobeDistant = 5.0f;
 
@@ -511,6 +511,17 @@ void createRenderpass()
         imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE], imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM],
         imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST], imagebuffers[IMAGE_INDEX_LIGHTPROBE_DEPTH],
     });
+
+    //lightprobe pre-filter pass
+    renderpass::create_renderpass(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_LIGHTPROBE_FILTER], {
+        {imagebuffers[IMAGE_INDEX_LIGHTPROBE_RADIANCE]->format, 0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, renderpass::ATTACHMENT_NONE},
+        {imagebuffers[IMAGE_INDEX_LIGHTPROBE_NORM]->format, 1, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, renderpass::ATTACHMENT_NONE},
+        {imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST]->format, 2, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, renderpass::ATTACHMENT_NONE},
+    });
+
+    renderpass::create_framebuffer(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_LIGHTPROBE_FILTER], vulkanFramebuffers[render::FRAMEBUFFER_LIGHTPROBE_FILTER], {
+        imagebuffers[IMAGE_INDEX_LIGHTPROBE_RADIANCE], imagebuffers[IMAGE_INDEX_LIGHTPROBE_NORM], imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST]
+    });
 }
 
 void updatelightingdescriptorset(bool blur, bool aoblur)
@@ -697,13 +708,26 @@ void createdescriptorset()
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, {uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_PROJ].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_PROJ].range}, {}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 2, {uniformbuffers[UNIFORM_INDEX_LIGHT].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHT].range}, {}},
     });
+
+    //light probe map pre-filter
+    descriptor::create_descriptorset_layout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_LIGHTPROBE_MAP_FILTER], vulkanDescriptorSets[render::DESCRIPTOR_LIGHTPROBE_MAP_FILTER], vulkanDescriptorPool, {
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 2},
+        });
+
+    descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_LIGHTPROBE_MAP_FILTER], {
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+        });
 }
 
 void createPipeline()
 {
     //gbuffer pass
     {
-        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_GBUFFER], vulkanPipelineLayouts[render::PIPELINE_GBUFFER]);
+        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_GBUFFER], vulkanPipelineLayouts[render::PIPELINE_GBUFFER], {});
 
         VkGraphicsPipelineCreateInfo pipelineCreateInfo{};
         pipelineCreateInfo.layout = vulkanPipelineLayouts[render::PIPELINE_GBUFFER];
@@ -735,7 +759,7 @@ void createPipeline()
         pipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
         pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
         pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
-        pipeline::create_pipieline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_GBUFFER], vulkanPipelineCache, {
+        pipeline::create_pipeline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_GBUFFER], vulkanPipelineCache, {
             {"data/shaders/gbuffer.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
             {"data/shaders/gbuffer.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
         });
@@ -743,7 +767,7 @@ void createPipeline()
 
     //lighting pass
     {
-        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_LIGHT], vulkanPipelineLayouts[render::PIPELINE_LIHGT]);
+        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_LIGHT], vulkanPipelineLayouts[render::PIPELINE_LIHGT], {});
 
         VkGraphicsPipelineCreateInfo pipelineCreateInfo{};
         pipelineCreateInfo.layout = vulkanPipelineLayouts[render::PIPELINE_LIHGT];
@@ -774,7 +798,7 @@ void createPipeline()
         pipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
         pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
         pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
-        pipeline::create_pipieline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_LIHGT], vulkanPipelineCache, {
+        pipeline::create_pipeline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_LIHGT], vulkanPipelineCache, {
             {"data/shaders/lighting.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
             {"data/shaders/lighting.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
         });
@@ -782,7 +806,7 @@ void createPipeline()
 
     //local lighting pass
     {
-        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_LOCAL_LIGHT], vulkanPipelineLayouts[render::PIPELINE_LOCAL_LIGHT]);
+        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_LOCAL_LIGHT], vulkanPipelineLayouts[render::PIPELINE_LOCAL_LIGHT], {});
 
         VkGraphicsPipelineCreateInfo pipelineCreateInfo{};
         pipelineCreateInfo.layout = vulkanPipelineLayouts[render::PIPELINE_LOCAL_LIGHT];
@@ -812,7 +836,7 @@ void createPipeline()
         pipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
         pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
         pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
-        pipeline::create_pipieline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_LOCAL_LIGHT], vulkanPipelineCache, {
+        pipeline::create_pipeline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_LOCAL_LIGHT], vulkanPipelineCache, {
             {"data/shaders/locallights.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
             {"data/shaders/locallights.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
         });
@@ -820,7 +844,7 @@ void createPipeline()
 
     //diffuse pass
     {
-        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_DIFFUSE], vulkanPipelineLayouts[render::PIPELINE_DIFFUSE]);
+        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_DIFFUSE], vulkanPipelineLayouts[render::PIPELINE_DIFFUSE], {});
 
         VkGraphicsPipelineCreateInfo pipelineCreateInfo{};
         pipelineCreateInfo.layout = vulkanPipelineLayouts[render::PIPELINE_DIFFUSE];
@@ -850,7 +874,7 @@ void createPipeline()
         pipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
         pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
         pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
-        pipeline::create_pipieline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_DIFFUSE], vulkanPipelineCache, {
+        pipeline::create_pipeline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_DIFFUSE], vulkanPipelineCache, {
             {"data/shaders/diffuse.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
             {"data/shaders/diffuse.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
         });
@@ -858,7 +882,7 @@ void createPipeline()
 
     //shadowmap pass
     {
-        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_SHADOWMAP], vulkanPipelineLayouts[render::PIPELINE_SHADOWMAP]);
+        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_SHADOWMAP], vulkanPipelineLayouts[render::PIPELINE_SHADOWMAP], {});
 
         VkGraphicsPipelineCreateInfo pipelineCreateInfo{};
         pipelineCreateInfo.layout = vulkanPipelineLayouts[render::PIPELINE_SHADOWMAP];
@@ -888,7 +912,7 @@ void createPipeline()
         pipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
         pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
         pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
-        pipeline::create_pipieline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_SHADOWMAP], vulkanPipelineCache, {
+        pipeline::create_pipeline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_SHADOWMAP], vulkanPipelineCache, {
             {"data/shaders/shadowmapping.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
             {"data/shaders/shadowmapping.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
         });
@@ -896,7 +920,7 @@ void createPipeline()
 
     //blur shadow pass
     {
-        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_SHADOWMAP_BLUR], vulkanPipelineLayouts[render::PIPELINE_SHADOWMAP_BLUR_VERTICAL]);
+        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_SHADOWMAP_BLUR], vulkanPipelineLayouts[render::PIPELINE_SHADOWMAP_BLUR_VERTICAL], {});
 
         VkComputePipelineCreateInfo pipelineCreateInfo{};
         pipelineCreateInfo.layout = vulkanPipelineLayouts[render::PIPELINE_SHADOWMAP_BLUR_VERTICAL];
@@ -904,7 +928,7 @@ void createPipeline()
         pipeline::create_compute_pipeline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_SHADOWMAP_BLUR_VERTICAL], vulkanPipelineCache,
             {"data/shaders/blurshadow_vertical.comp.spv", VK_SHADER_STAGE_COMPUTE_BIT});
 
-        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_SHADOWMAP_BLUR], vulkanPipelineLayouts[render::PIPELINE_SHADOWMAP_BLUR_HORIZONTAL]);
+        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_SHADOWMAP_BLUR], vulkanPipelineLayouts[render::PIPELINE_SHADOWMAP_BLUR_HORIZONTAL], {});
 
         pipelineCreateInfo.layout = vulkanPipelineLayouts[render::PIPELINE_SHADOWMAP_BLUR_HORIZONTAL];
 
@@ -914,7 +938,7 @@ void createPipeline()
 
     //skydome pass
     {
-        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_SKYDOME], vulkanPipelineLayouts[render::PIPELINE_SKYDOME]);
+        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_SKYDOME], vulkanPipelineLayouts[render::PIPELINE_SKYDOME], {});
 
         VkGraphicsPipelineCreateInfo pipelineCreateInfo{};
         pipelineCreateInfo.layout = vulkanPipelineLayouts[render::PIPELINE_SKYDOME];
@@ -944,7 +968,7 @@ void createPipeline()
         pipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
         pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
         pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
-        pipeline::create_pipieline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_SKYDOME], vulkanPipelineCache, {
+        pipeline::create_pipeline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_SKYDOME], vulkanPipelineCache, {
             {"data/shaders/skydome.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
             {"data/shaders/skydome.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
         });
@@ -952,7 +976,7 @@ void createPipeline()
 
     //AO pass
     {
-        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_AO], vulkanPipelineLayouts[render::PIPELINE_AO]);
+        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_AO], vulkanPipelineLayouts[render::PIPELINE_AO], {});
 
         VkGraphicsPipelineCreateInfo pipelineCreateInfo{};
         pipelineCreateInfo.layout = vulkanPipelineLayouts[render::PIPELINE_AO];
@@ -982,7 +1006,7 @@ void createPipeline()
         pipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
         pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
         pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
-        pipeline::create_pipieline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_AO], vulkanPipelineCache, {
+        pipeline::create_pipeline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_AO], vulkanPipelineCache, {
             {"data/shaders/ambientocculusion.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
             {"data/shaders/ambientocculusion.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
         });
@@ -990,7 +1014,7 @@ void createPipeline()
 
     //blur AO pass
     {
-        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_AO_BLUR], vulkanPipelineLayouts[render::PIPELINE_AO_BLUR_VERTICAL]);
+        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_AO_BLUR], vulkanPipelineLayouts[render::PIPELINE_AO_BLUR_VERTICAL], {});
 
         VkComputePipelineCreateInfo pipelineCreateInfo{};
         pipelineCreateInfo.layout = vulkanPipelineLayouts[render::PIPELINE_AO_BLUR_VERTICAL];
@@ -998,7 +1022,7 @@ void createPipeline()
         pipeline::create_compute_pipeline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_AO_BLUR_VERTICAL], vulkanPipelineCache,
             { "data/shaders/blurAO_vertical.comp.spv", VK_SHADER_STAGE_COMPUTE_BIT });
 
-        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_AO_BLUR], vulkanPipelineLayouts[render::PIPELINE_AO_BLUR_HORIZONTAL]);
+        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_AO_BLUR], vulkanPipelineLayouts[render::PIPELINE_AO_BLUR_HORIZONTAL], {});
 
         pipelineCreateInfo.layout = vulkanPipelineLayouts[render::PIPELINE_AO_BLUR_HORIZONTAL];
 
@@ -1008,7 +1032,7 @@ void createPipeline()
 
     //lightprobe mapping pass
     {
-        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_LIGHTPROBE_MAP], vulkanPipelineLayouts[render::PIPELINE_LIGHTPROBE_MAP]);
+        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_LIGHTPROBE_MAP], vulkanPipelineLayouts[render::PIPELINE_LIGHTPROBE_MAP], {});
 
         VkGraphicsPipelineCreateInfo pipelineCreateInfo{};
         pipelineCreateInfo.layout = vulkanPipelineLayouts[render::PIPELINE_LIGHTPROBE_MAP];
@@ -1040,11 +1064,52 @@ void createPipeline()
         pipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
         pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
         pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
-        pipeline::create_pipieline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_LIGHTPROBE_MAP], vulkanPipelineCache, {
+        pipeline::create_pipeline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_LIGHTPROBE_MAP], vulkanPipelineCache, {
             {"data/shaders/lightProbeMapping.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
             {"data/shaders/lightProbeMapping.geom.spv", VK_SHADER_STAGE_GEOMETRY_BIT},
             {"data/shaders/lightProbeMapping.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
         });
+    }
+
+    //lightprobe map pre-filter pass
+    {
+        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_LIGHTPROBE_MAP_FILTER], vulkanPipelineLayouts[render::PIPELINE_LIGHTPROBE_MAP_FILTER], {
+            {VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_GEOMETRY_BIT, 0, sizeof(int) * 3},
+        });
+
+        VkGraphicsPipelineCreateInfo pipelineCreateInfo{};
+        pipelineCreateInfo.layout = vulkanPipelineLayouts[render::PIPELINE_LIGHTPROBE_MAP_FILTER];
+        pipelineCreateInfo.renderPass = vulkanRenderpasses[render::RENDERPASS_LIGHTPROBE_FILTER];
+
+        std::vector<VkVertexInputAttributeDescription> vertexinputs = {
+            { 0, 0, VK_FORMAT_R32G32_SFLOAT, 0 },
+        };
+
+        VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo = pipeline::getInputAssemblyCreateInfo();
+        VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo = pipeline::getRasterizationCreateInfo(VK_CULL_MODE_BACK_BIT);
+        VkPipelineColorBlendAttachmentState pipelinecolorblendattachment = pipeline::getColorBlendAttachment(VK_FALSE);
+        std::vector<VkPipelineColorBlendAttachmentState> pipelinecolorblendattachments = { pipelinecolorblendattachment, pipelinecolorblendattachment, pipelinecolorblendattachment };
+        VkPipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo = pipeline::getColorBlendCreateInfo(static_cast<uint32_t>(pipelinecolorblendattachments.size()), pipelinecolorblendattachments.data());
+        VkPipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo = pipeline::getMultisampleCreateInfo(VK_SAMPLE_COUNT_1_BIT);
+        VkViewport viewport = pipeline::getViewport(lightprobeTexSize, lightprobeTexSize);
+        VkRect2D scissor = pipeline::getScissor(lightprobeTexSize, lightprobeTexSize);
+        VkPipelineViewportStateCreateInfo pipelineViewportStateCreateInfo = pipeline::getViewportCreateInfo(&viewport, &scissor);
+        VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo = pipeline::getDepthStencilCreateInfo(VK_FALSE, VK_COMPARE_OP_LESS_OR_EQUAL);
+        VkVertexInputBindingDescription pipelinevertexinputbinding = pipeline::getVertexinputbindingDescription(sizeof(glm::vec2));
+        VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo = pipeline::getVertexinputAttributeDescription(&pipelinevertexinputbinding, vertexinputs);
+
+        pipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
+        pipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
+        pipelineCreateInfo.pColorBlendState = &pipelineColorBlendStateCreateInfo;
+        pipelineCreateInfo.pMultisampleState = &pipelineMultisampleStateCreateInfo;
+        pipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
+        pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
+        pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
+        pipeline::create_pipeline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_LIGHTPROBE_MAP_FILTER], vulkanPipelineCache, {
+            {"data/shaders/ambientocculusion.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+            {"data/shaders/lightProbeMapFilter.geom.spv", VK_SHADER_STAGE_GEOMETRY_BIT},
+            {"data/shaders/lightProbeMapFilter.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
+            });
     }
 }
 
@@ -1300,11 +1365,12 @@ void setupbuffer()
     memPtr->generate_filteredtex(devicePtr, vulkanGraphicsQueue, vulkanComputeQueue, imagebuffers[IMAGE_INDEX_SKYDOME], imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE], vulkanSamplers[SAMPLE_INDEX_NORMAL]);
     memPtr->create_sampler(devicePtr, vulkanSamplers[SAMPLE_INDEX_SKYDOME], miplevel);
 
-    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_B10G11R11_UFLOAT_PACK32, lightprobeTexSize, lightprobeTexSize, 1, imagebuffers[IMAGE_INDEX_LIGHTPROBE_RADIANCE]);
-    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R8G8_SNORM, lightprobeTexSize, lightprobeTexSize, 1, imagebuffers[IMAGE_INDEX_LIGHTPROBE_NORM]);
-    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16_SFLOAT, lightprobeTexSize, lightprobeTexSize, 1, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST]);
+    uint32_t size = lightprobeSize();
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_B10G11R11_UFLOAT_PACK32, lightprobeTexSize, lightprobeTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_RADIANCE]);
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R8G8_SNORM, lightprobeTexSize, lightprobeTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_NORM]);
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16_SFLOAT, lightprobeTexSize, lightprobeTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST]);
 
-    uint32_t size = lightprobeSize() * 6;
+    size *= 6;
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, lightprobeCubemapTexSize, lightprobeCubemapTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE]);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, lightprobeCubemapTexSize, lightprobeCubemapTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM]);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16_SFLOAT, lightprobeCubemapTexSize, lightprobeCubemapTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST]);
@@ -1478,7 +1544,8 @@ void setupbuffer()
                 {
                     float x = (i - lightprobeSize_unit * 0.5f) * lightprobeDistant;
                     float y = j * lightprobeDistant;
-                    glm::vec3 pos = glm::vec3(x, y, y);
+                    float z = k * lightprobeDistant;
+                    glm::vec3 pos = glm::vec3(x, y, z);
                     //glm::vec3 pos = glm::vec3(0.75f, 2.25f, -5.5f);
                     lightprobe_proj lightprobeProjection;
 
@@ -1532,16 +1599,16 @@ void bakelightprobe()
         renderPassBeginInfo.pClearValues = lightprobeclearValues.data();
         renderPassBeginInfo.framebuffer = vulkanFramebuffers[render::FRAMEBUFFER_LIGHTPROBE];
 
-        if (vkBeginCommandBuffer(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], &commandBufferBeginInfo) != VK_SUCCESS)
+        if (vkBeginCommandBuffer(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE], &commandBufferBeginInfo) != VK_SUCCESS)
         {
             std::cout << "failed to begin command buffer!" << std::endl;
         }
 
-        //vkCmdResetQueryPool(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_START, 2);
-        //vkCmdWriteTimestamp(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_START);
+        //vkCmdResetQueryPool(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE], vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_START, 2);
+        //vkCmdWriteTimestamp(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_START);
 
-        vkCmdBeginRenderPass(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-        vkCmdBindPipeline(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelines[render::PIPELINE_LIGHTPROBE_MAP]);
+        vkCmdBeginRenderPass(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdBindPipeline(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelines[render::PIPELINE_LIGHTPROBE_MAP]);
 
 
         unsigned int probeSize = lightprobeSize();
@@ -1552,25 +1619,25 @@ void bakelightprobe()
             dynamicoffsets[0] = 0;
             for (auto obj : objects)
             {
-                vkCmdBindDescriptorSets(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelineLayouts[render::PIPELINE_LIGHTPROBE_MAP], 0, 1,
+                vkCmdBindDescriptorSets(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelineLayouts[render::PIPELINE_LIGHTPROBE_MAP], 0, 1,
                     &vulkanDescriptorSets[render::DESCRIPTOR_LIGHTPROBE_MAP], static_cast<uint32_t>(dynamicoffsets.size()), dynamicoffsets.data());
 
-                obj->draw_object(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE]);
+                obj->draw_object(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE]);
                 dynamicoffsets[0] += 128;
             }
             dynamicoffsets[1] += static_cast<uint32_t>(uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_PROJ].range);
         }
 
-        vkCmdEndRenderPass(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE]);
+        vkCmdEndRenderPass(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE]);
 
-        //vkCmdWriteTimestamp(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE], VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_END);
+        //vkCmdWriteTimestamp(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE], VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_END);
 
-        if (vkEndCommandBuffer(vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE]) != VK_SUCCESS)
+        if (vkEndCommandBuffer(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE]) != VK_SUCCESS)
         {
             std::cout << "failed to end commnad buffer!" << std::endl;
         }
 
-        std::array<VkCommandBuffer, 1> submitcommandbuffers = { vulkanCommandBuffers[render::COMMANDBUFFER_LIHGTPROBE] };
+        std::array<VkCommandBuffer, 1> submitcommandbuffers = { vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE] };
 
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1579,6 +1646,82 @@ void bakelightprobe()
         submitInfo.pWaitDstStageMask = &pipelinestageFlag;
         submitInfo.waitSemaphoreCount = 0;
         submitInfo.pWaitSemaphores = 0;
+        submitInfo.signalSemaphoreCount = 1;
+        submitInfo.pSignalSemaphores = &vulkanSemaphores[render::SEMAPHORE_LIGHTPROBE_MAP];
+        submitInfo.commandBufferCount = static_cast<uint32_t>(submitcommandbuffers.size());
+        submitInfo.pCommandBuffers = submitcommandbuffers.data();
+        if (vkQueueSubmit(vulkanGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
+        {
+            std::cout << "failed to submit queue" << std::endl;
+        }
+    }
+    
+    //prefilter light probes
+    {
+        VkCommandBufferBeginInfo commandBufferBeginInfo{};
+        commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+        std::array<VkClearValue, 3> lightprobeclearValues;
+        lightprobeclearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+        lightprobeclearValues[1].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+        lightprobeclearValues[2].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+
+        VkRenderPassBeginInfo renderPassBeginInfo{};
+        renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        renderPassBeginInfo.renderPass = vulkanRenderpasses[render::RENDERPASS_LIGHTPROBE_FILTER];
+        renderPassBeginInfo.renderArea.offset.x = 0;
+        renderPassBeginInfo.renderArea.offset.y = 0;
+        renderPassBeginInfo.renderArea.extent.width = lightprobeTexSize;
+        renderPassBeginInfo.renderArea.extent.height = lightprobeTexSize;
+        renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(lightprobeclearValues.size());
+        renderPassBeginInfo.pClearValues = lightprobeclearValues.data();
+        renderPassBeginInfo.framebuffer = vulkanFramebuffers[render::FRAMEBUFFER_LIGHTPROBE_FILTER];
+
+        if (vkBeginCommandBuffer(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER], &commandBufferBeginInfo) != VK_SUCCESS)
+        {
+            std::cout << "failed to begin command buffer!" << std::endl;
+        }
+
+        //vkCmdResetQueryPool(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER], vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_START, 2);
+        //vkCmdWriteTimestamp(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_START);
+
+        vkCmdBeginRenderPass(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdBindPipeline(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelines[render::PIPELINE_LIGHTPROBE_MAP_FILTER]);
+
+        int pushconstant[3];
+        pushconstant[1] = lightprobeTexSize;
+        pushconstant[2] = lightprobeTexSize;
+        unsigned int size = lightprobeSize();
+        for(unsigned int i = 0; i < size; ++i)
+        {
+            vkCmdBindDescriptorSets(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelineLayouts[render::PIPELINE_LIGHTPROBE_MAP_FILTER], 0, 1,
+                &vulkanDescriptorSets[render::DESCRIPTOR_LIGHTPROBE_MAP_FILTER], 0, nullptr);
+
+            pushconstant[0] = i;
+
+            vkCmdPushConstants(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER], vulkanPipelineLayouts[render::PIPELINE_LIGHTPROBE_MAP_FILTER], VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(int) * 3, pushconstant);
+
+            render::draw(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER], vertexbuffers[VERTEX_INDEX_QUAD_POSONLY]);
+        }
+
+        vkCmdEndRenderPass(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER]);
+
+        //vkCmdWriteTimestamp(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER], VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_END);
+
+        if (vkEndCommandBuffer(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER]) != VK_SUCCESS)
+        {
+            std::cout << "failed to end commnad buffer!" << std::endl;
+        }
+
+        std::array<VkCommandBuffer, 1> submitcommandbuffers = { vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER] };
+
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        VkPipelineStageFlags pipelinestageFlag = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        std::array<VkPipelineStageFlags, 1> pipelinestageFlags = { pipelinestageFlag };
+        submitInfo.pWaitDstStageMask = &pipelinestageFlag;
+        submitInfo.waitSemaphoreCount = 1;
+        submitInfo.pWaitSemaphores = &vulkanSemaphores[render::SEMAPHORE_LIGHTPROBE_MAP];
         submitInfo.signalSemaphoreCount = 0;
         submitInfo.pSignalSemaphores = 0;
         submitInfo.commandBufferCount = static_cast<uint32_t>(submitcommandbuffers.size());

@@ -169,4 +169,83 @@ vec3 tone_mapping(vec3 C, lightsetting setting)
 	return mix(C, pow(eC / (eC + vec3(1.0)), vec3(setting.gamma / 2.2)), setting.highdynamicrange);
 }
 
+vec2 fromOctahedral(in vec3 v) 
+{
+    float positive = abs(v.x) + abs(v.y) + abs(v.z);
+    vec2 result = v.xy * (1.0 / positive);
+   
+	if (v.z < 0.0) 
+	{
+		float x = (result.x >= 0.0) ? 1.0 : -1.0;
+		float y = (result.y >= 0.0) ? 1.0 : -1.0;
+        result = (1.0 - abs(result.yx)) * vec2(x,y);
+    }
+	
+    return result;
+}
+
+vec3 toOctahedral(vec2 uv) 
+{
+	vec3 position = vec3(2.0 * (uv - 0.5), 0);                
+
+    vec2 absolute = abs(position.xy);
+    position.z = 1.0 - absolute.x - absolute.y;
+
+    if(position.z < 0) 
+	{
+		vec2 signvec;
+		signvec.x = (position.x >= 0.0) ? 1.0 : -1.0;
+		signvec.y = (position.y >= 0.0) ? 1.0 : -1.0;
+        position.xy = signvec * (vec2(1.0) - absolute.yx);
+    }
+
+    return position;
+}
+
+vec3 getCubemapCoord(vec3 v)
+{
+	vec2 result;
+	float z_value = 0.0f;
+
+	vec3 absolute = vec3(abs(v.x), abs(v.y), abs(v.z));
+	if ((v.x > 0) && (absolute.x >= absolute.y) && (absolute.x >= absolute.z))
+	{
+		result = vec2(-v.z, v.y);
+		result = 0.5f * (result / absolute.x + 1.0);
+		z_value = 1.0f;
+	}
+	else if ((v.x <= 0) && (absolute.x >= absolute.y) && (absolute.x >= absolute.z))
+	{
+		result = vec2(v.z, v.y);
+		result = 0.5f * (result / absolute.x + 1.0);
+		z_value = 0.0f;
+	}
+	else if ((v.y > 0) && (absolute.y >= absolute.x) && (absolute.y >= absolute.z))
+	{
+		result = vec2(v.x, -v.z);
+		result = 0.5f * (result / absolute.y + 1.0);
+		z_value = 2.0f;
+	}
+	else if ((v.y <= 0) && (absolute.y >= absolute.x) && (absolute.y >= absolute.z))
+	{
+		result = vec2(v.x, v.z);
+		result = 0.5f * (result / absolute.y + 1.0);
+		z_value = 3.0f;
+	}
+	else if ((v.z > 0) && (absolute.z >= absolute.x) && (absolute.z >= absolute.y))
+	{
+		result = vec2(v.x, v.y);
+		result = 0.5f * (result / absolute.z + 1.0);
+		z_value = 5.0f;
+	}
+	else if ((v.z < 0) && (absolute.z >= absolute.x) && (absolute.z >= absolute.y))
+	{
+		result = vec2(-v.x, v.y);
+		result = 0.5f * (result / absolute.z + 1.0);
+		z_value = 4.0f;
+	}
+	
+	return vec3(result, z_value);
+}
+
 #endif

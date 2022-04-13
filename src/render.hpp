@@ -26,9 +26,9 @@ namespace pipeline
 	VkVertexInputBindingDescription getVertexinputbindingDescription(uint32_t stride);
 	VkPipelineVertexInputStateCreateInfo getVertexinputAttributeDescription(VkVertexInputBindingDescription* vertexinputbinding, std::vector<VkVertexInputAttributeDescription>& vertexinputdescription);
 
-	bool create_pipieline(VkDevice device, VkGraphicsPipelineCreateInfo& pipelineCreateInfo, VkPipeline& pipeline, VkPipelineCache pipelinecache, std::vector<shaderinput> shaderinfos);
+	bool create_pipeline(VkDevice device, VkGraphicsPipelineCreateInfo& pipelineCreateInfo, VkPipeline& pipeline, VkPipelineCache pipelinecache, std::vector<shaderinput> shaderinfos);
 	bool create_compute_pipeline(VkDevice device, VkComputePipelineCreateInfo& pipelinecreateInfo, VkPipeline& pipeline, VkPipelineCache pipelinecache, shaderinput shaderinfo);
-	bool create_pipelinelayout(VkDevice device, VkDescriptorSetLayout descriptorsetlayout, VkPipelineLayout& pipelinelayout);
+	bool create_pipelinelayout(VkDevice device, VkDescriptorSetLayout descriptorsetlayout, VkPipelineLayout& pipelinelayout, std::vector<VkPushConstantRange> pushconstants);
 
 	void closepipeline(VkDevice device, VkPipeline& pipeline);
 	void close_pipelinelayout(VkDevice device, VkPipelineLayout& pipelinelayout);
@@ -102,6 +102,7 @@ namespace render
 		DESCRIPTOR_AO,
 		DESCRIPTOR_AO_BLUR,
 		DESCRIPTOR_LIGHTPROBE_MAP,
+		DESCRIPTOR_LIGHTPROBE_MAP_FILTER,
 		DESCRIPTOR_MAX,
 	};
 
@@ -120,6 +121,7 @@ namespace render
 		PIPELINE_AO_BLUR_VERTICAL,
 		PIPELINE_AO_BLUR_HORIZONTAL,
 		PIPELINE_LIGHTPROBE_MAP,
+		PIPELINE_LIGHTPROBE_MAP_FILTER,
 		PIPELINE_MAX,
 	};
 
@@ -134,6 +136,8 @@ namespace render
 		SEMAPHORE_GBUFFER,
 		SEMAPHORE_SHADOWMAP_BLUR_VERTICAL,
 		SEMAPHORE_SHADOWMAP_BLUR_HORIZONTAL,
+		SEMAPHORE_LIGHTPROBE_MAP,
+		SEMAPHORE_LIGHTPROBE_MAP_FILTER,
 		SEMAPHORE_MAX,
 	};
 
@@ -144,6 +148,7 @@ namespace render
 		RENDERPASS_SHADOWMAP,
 		RENDERPASS_AO,
 		RENDERPASS_LIGHTPROBE,
+		RENDERPASS_LIGHTPROBE_FILTER,
 		RENDERPASS_SWAPCHAIN,
 		RENDERPASS_MAX,
 	};
@@ -165,7 +170,8 @@ namespace render
 		COMMANDBUFFER_GBUFFER = 0,
 		COMMANDBUFFER_SHADOWMAP,
 		COMMANDBUFFER_AO,
-		COMMANDBUFFER_LIHGTPROBE,
+		COMMANDBUFFER_LIGHTPROBE,
+		COMMANDBUFFER_LIGHTPROBE_FILTER,
 		COMMANDBUFFER_SWAPCHAIN,
 	};
 
@@ -177,6 +183,7 @@ namespace render
 		FRAMEBUFFER_SHADOWMAP,
 		FRAMEBUFFER_AO,
 		FRAMEBUFFER_SWAPCHAIN,
-		FRAMEBUFFER_LIGHTPROBE = FRAMEBUFFER_SWAPCHAIN + 10
+		FRAMEBUFFER_LIGHTPROBE = FRAMEBUFFER_SWAPCHAIN + 10,
+		FRAMEBUFFER_LIGHTPROBE_FILTER,
 	};
 }

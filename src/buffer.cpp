@@ -586,7 +586,7 @@ void memory::generate_filteredtex(device* devicePtr, VkQueue graphicsqueue, VkQu
         {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, {}, {sampler, target->imageView, VK_IMAGE_LAYOUT_GENERAL}},
         });
 
-    pipeline::create_pipelinelayout(devicePtr->vulkanDevice, descriptorsetlayout, pipelinelayout);
+    pipeline::create_pipelinelayout(devicePtr->vulkanDevice, descriptorsetlayout, pipelinelayout, {});
 
     VkComputePipelineCreateInfo pipelineCreateInfo{};
     pipelineCreateInfo.layout = pipelinelayout;
