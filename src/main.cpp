@@ -1367,7 +1367,7 @@ void setupbuffer()
 
     uint32_t size = lightprobeSize();
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_B10G11R11_UFLOAT_PACK32, lightprobeTexSize, lightprobeTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_RADIANCE]);
-    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R8G8_SNORM, lightprobeTexSize, lightprobeTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_NORM]);
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R8G8_UNORM, lightprobeTexSize, lightprobeTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_NORM]);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16_SFLOAT, lightprobeTexSize, lightprobeTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST]);
 
     size *= 6;
@@ -1542,9 +1542,9 @@ void setupbuffer()
             {
                 for (unsigned int k = 0; k < lightprobeSize_unit; ++k)
                 {
-                    float x = (i - lightprobeSize_unit * 0.5f) * lightprobeDistant;
+                    float x = (k - lightprobeSize_unit * 0.5f) * lightprobeDistant;
                     float y = j * lightprobeDistant;
-                    float z = k * lightprobeDistant;
+                    float z = i * lightprobeDistant;
                     glm::vec3 pos = glm::vec3(x, y, z);
                     //glm::vec3 pos = glm::vec3(0.75f, 2.25f, -5.5f);
                     lightprobe_proj lightprobeProjection;

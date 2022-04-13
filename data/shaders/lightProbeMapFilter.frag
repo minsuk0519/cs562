@@ -21,7 +21,7 @@ void main()
 {
 	vec2 outTexcoord = gl_FragCoord.xy / vec2(float(width), float(height));
 
-	vec3 dir = toOctahedral(outTexcoord);
+	vec3 dir = fromOctahedral(outTexcoord);
 	dir = normalize(dir);
 	vec3 cubemapCoord = getCubemapCoord(dir);
 	cubemapCoord.z += id * 6;
@@ -31,6 +31,6 @@ void main()
 	vec2 dist = texture(distTex, cubemapCoord).xy;
 	
 	radianceColor = radiance;
-	normColor = fromOctahedral(normal);
+	normColor = toOctahedral(normal);
 	distColor = dist;
 }
