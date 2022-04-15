@@ -72,9 +72,15 @@ WORLD_INDEX convertWorldIndex(probesMap MAP, LOCAL_INDEX idx)
 
 vec3 getProbePos(probesMap MAP, WORLD_INDEX idx)
 {
-	int x = idx & (MAP.probeGridLength - 1);
-	int y = (idx & ((MAP.probeGridLength * MAP.probeGridLength) - 1)) >> findMSB(MAP.probeGridLength);
-	int z = idx >> findMSB(MAP.probeGridLength * MAP.probeGridLength);
+	//int x = idx & (MAP.probeGridLength - 1);
+	//int y = (idx & ((MAP.probeGridLength * MAP.probeGridLength) - 1)) >> findMSB(MAP.probeGridLength);
+	//int z = idx >> findMSB(MAP.probeGridLength * MAP.probeGridLength);
+	
+	int x = idx % MAP.probeGridLength;
+	int index = (idx - x) / MAP.probeGridLength;
+	int y = index % MAP.probeGridLength;
+	index = (index - y) / MAP.probeGridLength;
+	int z = index % MAP.probeGridLength;
 	
 	return MAP.centerofProbeMap + vec3(x, y, z) * MAP.probeUnitDist;
 }
@@ -386,6 +392,8 @@ vec3 computeRay(probesMap MAP, vec3 pos, vec3 wo, vec3 n)
 	vec3 local_pos = (worldSpaceRay.origin - MAP.centerofProbeMap) / MAP.probeUnitDist;
 	local_pos = clamp(floor(local_pos), vec3(0,0,0), vec3(MAP.probeGridLength - 1));
 	MAP.startPos = WORLD_INDEX(local_pos.x + local_pos.y * MAP.probeGridLength + local_pos.z * MAP.probeGridLength * MAP.probeGridLength);
+	
+	//return vec3(getProbePos(MAP, MAP.startPos) - MAP.centerofProbeMap) / (MAP.probeGridLength * MAP.probeUnitDist);
 	
 	vec2 hitTexCoord;
     WORLD_INDEX index;

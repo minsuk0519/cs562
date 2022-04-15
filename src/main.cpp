@@ -71,9 +71,11 @@ unsigned int lightprobeTexSize = 1024;
 unsigned int lightprobeCubemapTexSize = 512;
 std::array<lightprobe_proj, MAX_LIGHT_PROBE> lightprobesProj;
 float lightprobeDistant = 5.0f;
+//float lightprobeDistant = 10.0f;
 lightprobeinfo lightprobeInfo = {
     //centerofProbeMap
-    glm::vec3(-2,-1,-10),
+    //glm::vec3(-10,-5,-15),
+    glm::vec3(-15,-10,-15),
     //probeGridLength
     lightprobeSize_unit,
     //probeUnitDist
@@ -137,6 +139,7 @@ constexpr glm::vec3 FORWARD = glm::vec3(0.0f, 0.0f, -1.0f);
 constexpr glm::vec3 UP = glm::vec3(0.0f, 1.0f, 0.0f);
 
 constexpr float LIGHT_SPHERE_SIZE = 0.05f;
+constexpr float LIGHT_PROBE_SIZE = 0.2f;
 constexpr float PI = 3.14159265358979f;
 constexpr float PI_HALF = PI / 2.0f;
 
@@ -641,7 +644,7 @@ void createdescriptorset()
 
     descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_DIFFUSE], {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, {uniformbuffers[UNIFORM_INDEX_PROJECTION].buf, 0, uniformbuffers[UNIFORM_INDEX_PROJECTION].range}, {}},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, {uniformbuffers[UNIFORM_INDEX_OBJECT].buf, 0, uniformbuffers[UNIFORM_INDEX_OBJECT].range}, {}},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, {uniformbuffers[UNIFORM_INDEX_OBJECT_DEBUG].buf, 0, uniformbuffers[UNIFORM_INDEX_OBJECT_DEBUG].range}, {}},
     });
 
     //shadowmapping
@@ -1261,6 +1264,7 @@ void updatebuffer()
         offset += 128;
     }
 
+    offset = 0;
     for (auto lit : local_light)
     {
         ObjectProperties prop;
@@ -1269,9 +1273,9 @@ void updatebuffer()
         prop.modelMat = glm::translate(glm::mat4(1.0f), lit.position) * glm::scale(glm::mat4(1.0f), glm::vec3(LIGHT_SPHERE_SIZE));
 
         void* data;
-        vkMapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_OBJECT].memory, offset, uniformbuffers[UNIFORM_INDEX_OBJECT].range, 0, &data);
-        memcpy(data, &prop, uniformbuffers[UNIFORM_INDEX_OBJECT].range);
-        vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_OBJECT].memory);
+        vkMapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_OBJECT_DEBUG].memory, offset, uniformbuffers[UNIFORM_INDEX_OBJECT_DEBUG].range, 0, &data);
+        memcpy(data, &prop, uniformbuffers[UNIFORM_INDEX_OBJECT_DEBUG].range);
+        vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_OBJECT_DEBUG].memory);
         offset += 128;
     }
 
@@ -1528,6 +1532,7 @@ void setupbuffer()
 
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(Projection), 1, uniformbuffers[UNIFORM_INDEX_PROJECTION]);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(ObjectProperties)*/128, 128, uniformbuffers[UNIFORM_INDEX_OBJECT]);
+    memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(ObjectProperties)*/128, 256, uniformbuffers[UNIFORM_INDEX_OBJECT_DEBUG]);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(lightSetting)*/24, 1, uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING]);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(camera), 1, uniformbuffers[UNIFORM_INDEX_CAMERA]);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(light)*/64, 64, uniformbuffers[UNIFORM_INDEX_LIGHT]);
@@ -1557,6 +1562,9 @@ void setupbuffer()
 
 
     {
+        ObjectProperties prop;
+
+        VkDeviceSize modeloffset = 128 * static_cast<uint32_t>(local_light.size());
 
         glm::mat4 proj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 1000.0f);
         //force it to right handed
@@ -1576,6 +1584,19 @@ void setupbuffer()
                     lightprobe_proj lightprobeProjection;
 
                     lightprobeProjection.pos = pos;
+
+                    prop.albedoColor = (glm::vec3(10, 10, 10));
+                    if (k == 0) prop.albedoColor = glm::vec3(0, 10, 0);
+                    if (j == 0) prop.albedoColor = glm::vec3(0, 0, 10);
+                    if (i == 0) prop.albedoColor = glm::vec3(10, 0, 10);
+                    if (i == 0 && j == 0 && k == 0) prop.albedoColor = glm::vec3(50, 0, 0);
+                    prop.modelMat = glm::translate(glm::mat4(1.0f), pos) * glm::scale(glm::mat4(1.0f), glm::vec3(LIGHT_SPHERE_SIZE));
+
+                    void* data1;
+                    vkMapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_OBJECT_DEBUG].memory, modeloffset, uniformbuffers[UNIFORM_INDEX_OBJECT_DEBUG].range, 0, &data1);
+                    memcpy(data1, &prop, 128);
+                    vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_OBJECT_DEBUG].memory);
+                    modeloffset += 128;
 
                     //glm::mat4 R = glm::translate(glm::transpose(glm::mat4(glm::vec4(0.0, 0.0, 1.0, 0.0f), glm::vec4(0.0, -1.0, 0.0, 0.0f), glm::vec4(-1.0, 0.0, 0.0, 0.0f), glm::vec4(0, 0, 0, 1))), -glm::vec3(pos));
                     //lightprobeProjection.projs[0] = proj * R;
@@ -2629,7 +2650,7 @@ int main(void)
                 vkCmdBindPipeline(vulkanCommandBuffers[commandbufferindex], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelines[render::PIPELINE_DIFFUSE]);
                 //draw local_light
                 {
-                    std::array<uint32_t, 1> dynamicoffsets = { 128 * static_cast<uint32_t>(objects.size()) };
+                    std::array<uint32_t, 1> dynamicoffsets = { 0 };// { 128 * static_cast<uint32_t>(objects.size()) };
                     for (auto lit : local_light)
                     {
                         vkCmdBindDescriptorSets(vulkanCommandBuffers[commandbufferindex], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelineLayouts[render::PIPELINE_DIFFUSE], 0, 1, 
@@ -2639,6 +2660,22 @@ int main(void)
 
                         dynamicoffsets[0] += 128;
                     }
+                }
+            }
+
+            //draw light probe
+            {
+                vkCmdBindPipeline(vulkanCommandBuffers[commandbufferindex], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelines[render::PIPELINE_DIFFUSE]);
+
+                std::array<uint32_t, 1> dynamicoffsets = { 128 * static_cast<uint32_t>(local_light.size()) };
+                for (unsigned int i = 0; i < lightprobeSize; ++i)
+                {
+                    vkCmdBindDescriptorSets(vulkanCommandBuffers[commandbufferindex], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelineLayouts[render::PIPELINE_DIFFUSE], 0, 1,
+                        &vulkanDescriptorSets[render::DESCRIPTOR_DIFFUSE], static_cast<uint32_t>(dynamicoffsets.size()), dynamicoffsets.data());
+
+                    render::draw(vulkanCommandBuffers[commandbufferindex], vertexbuffers[VERTEX_INDEX_BOX_POSONLY]);
+
+                    dynamicoffsets[0] += 128;
                 }
             }
 
