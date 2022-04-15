@@ -169,12 +169,12 @@ vec3 tone_mapping(vec3 C, lightsetting setting)
 	return mix(C, pow(eC / (eC + vec3(1.0)), vec3(setting.gamma / 2.2)), setting.highdynamicrange);
 }
 
-vec2 toOctahedral(in vec3 v) 
+vec2 toOctahedral(vec3 v) 
 {
     float positive = abs(v.x) + abs(v.y) + abs(v.z);
-    vec2 result = v.xy * (1.0 / positive);
+    vec2 result = v.xz * (1.0 / positive);
    
-	if (v.z < 0.0) 
+	if (v.y < 0.0) 
 	{
 		float x = (result.x >= 0.0) ? 1.0 : -1.0;
 		float y = (result.y >= 0.0) ? 1.0 : -1.0;
@@ -200,6 +200,8 @@ vec3 fromOctahedral(vec2 uv)
 		signvec.y = (position.y >= 0.0) ? 1.0 : -1.0;
         position.xy = signvec * (vec2(1.0) - absolute.yx);
     }
+	
+	position.yz = position.zy;
 
     return position;
 }

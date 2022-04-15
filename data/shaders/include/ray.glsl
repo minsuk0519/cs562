@@ -112,7 +112,6 @@ float distanceToIntersection(Ray r, vec3 v)
 	{
         numer = r.origin.x * r.direction.y - r.origin.y * r.direction.x;
         denom = v.x * r.direction.y - v.y * r.direction.x;
-		if(abs(denom) <= 0.1) return 0.0;
     }
 
     return numer / denom;
@@ -154,7 +153,7 @@ TraceResult highresTraceRaytoSegment(probesMap MAP, Ray ray, vec2 startSegment, 
 
             vec3 normal = fromOctahedral(texelFetch(normalProbe, ivec3(MAP.textureSize * texCoord, idx), 0).xy);
 
-            float surfaceThickness = MIN_THICKNESS + (MAX_THICKNESS - MIN_THICKNESS) *  max(dot(ray.direction, directionFromProbe), 0.0) * (2 - abs(dot(ray.direction, normal))) * clamp(distAlongRay * 0.1, 0.05, 1.0);
+            float surfaceThickness = MIN_THICKNESS + (MAX_THICKNESS - MIN_THICKNESS) * max(dot(ray.direction, directionFromProbe), 0.0) * (2 - abs(dot(ray.direction, normal))) * clamp(distAlongRay * 0.1, 0.05, 1.0);
 
             if ((minDistFromProbeToRay < distanceFromProbeToSurface + surfaceThickness) && (dot(normal, ray.direction) < 0)) 
 			{
@@ -325,7 +324,7 @@ TraceResult singleProbeTrace(probesMap MAP, Ray ray, WORLD_INDEX idx, inout floa
 
     for (int i = 0; i < 4; ++i)
 	{
-		if (tsegments[i + 1] - tsegments[i] >= EPSILON) 
+		if (abs(tsegments[i + 1] - tsegments[i]) >= EPSILON) 
 		{
             TraceResult result = traceRaytoSegment(MAP, localRay, tsegments[i], tsegments[i + 1], idx, tMin, tMax, hitTexCoord);
             
@@ -361,7 +360,7 @@ bool lightFieldTrace(probesMap MAP, Ray ray, out vec2 hitTexCoord, out WORLD_IND
 				hitTexCoord = toOctahedral(ray.direction);
 				
 				float probeDistance = texelFetch(distanceProbe, ivec3(hitTexCoord * MAP.textureSize, hitProbeIndex), 0).r;
-				if (probeDistance < 10000) 
+				if (probeDistance < 1000) 
 				{
 					vec3 hitLocation = getProbePos(MAP, hitProbeIndex) + ray.direction * probeDistance;
 					tMax = length(ray.origin - hitLocation);
@@ -379,8 +378,9 @@ bool lightFieldTrace(probesMap MAP, Ray ray, out vec2 hitTexCoord, out WORLD_IND
 vec3 computeRay(probesMap MAP, vec3 pos, vec3 wo, vec3 n)
 {
 	//lets assume perfect mirror for sampleBRDF right now
-	vec3 wi = normalize(2 * dot(n, wo) * n - wo);//importanceSampleBRDFDirection(wo, n);
-
+	//vec3 wi = normalize(2 * dot(n, wo) * n - wo);//importanceSampleBRDFDirection(wo, n);
+	vec3 wi = normalize(reflect(-wo, n));
+	
     Ray worldSpaceRay = Ray(pos + wi * EPSILON, wi);
 	
 	vec3 local_pos = (worldSpaceRay.origin - MAP.centerofProbeMap) / MAP.probeUnitDist;

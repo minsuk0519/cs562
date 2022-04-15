@@ -68,12 +68,12 @@ constexpr unsigned int MAX_LIGHT_PROBE = MAX_LIGHT_PROBE_UNIT * MAX_LIGHT_PROBE_
 unsigned int lightprobeSize_unit = 6;
 unsigned int lightprobeSize = lightprobeSize_unit * lightprobeSize_unit * lightprobeSize_unit;
 unsigned int lightprobeTexSize = 1024;
-unsigned int lightprobeCubemapTexSize = 256;
+unsigned int lightprobeCubemapTexSize = 512;
 std::array<lightprobe_proj, MAX_LIGHT_PROBE> lightprobesProj;
 float lightprobeDistant = 5.0f;
 lightprobeinfo lightprobeInfo = {
     //centerofProbeMap
-    glm::vec3(-15,0,-20),
+    glm::vec3(-2,-1,-10),
     //probeGridLength
     lightprobeSize_unit,
     //probeUnitDist
@@ -1577,12 +1577,25 @@ void setupbuffer()
 
                     lightprobeProjection.pos = pos;
 
-                    lightprobeProjection.projs[0] = proj * glm::lookAtLH(pos, pos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
-                    lightprobeProjection.projs[1] = proj * glm::lookAtLH(pos, pos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
-                    lightprobeProjection.projs[2] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, -1.0));
-                    lightprobeProjection.projs[3] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
-                    lightprobeProjection.projs[4] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, 1.0, 0.0));
-                    lightprobeProjection.projs[5] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, 1.0, 0.0));
+                    //glm::mat4 R = glm::translate(glm::transpose(glm::mat4(glm::vec4(0.0, 0.0, 1.0, 0.0f), glm::vec4(0.0, -1.0, 0.0, 0.0f), glm::vec4(-1.0, 0.0, 0.0, 0.0f), glm::vec4(0, 0, 0, 1))), -glm::vec3(pos));
+                    //lightprobeProjection.projs[0] = proj * R;
+                    //R = glm::translate(glm::transpose(glm::mat4(glm::vec4(0.0, 0.0, -1.0, 0.0f), glm::vec4(0.0, -1.0, 0.0, 0.0f), glm::vec4(1.0, 0.0, 0.0, 0.0f), glm::vec4(0, 0, 0, 1))), -glm::vec3(pos));
+                    //lightprobeProjection.projs[1] = proj * R;
+                    //R = glm::translate(glm::transpose(glm::mat4(glm::vec4(-1.0, 0.0, 0.0, 0.0f), glm::vec4(0.0, 0.0, -1.0, 0.0f), glm::vec4(0.0, -1.0, 0.0, 0.0f), glm::vec4(0, 0, 0, 1))), -glm::vec3(pos));
+                    //lightprobeProjection.projs[2] = proj * R;
+                    //R = glm::translate(glm::transpose(glm::mat4(glm::vec4(1.0, 0.0, 0.0, 0.0f), glm::vec4(0.0, 0.0, -1.0, 0.0f), glm::vec4(0.0, 1.0, 0.0, 0.0f), glm::vec4(0, 0, 0, 1))), -glm::vec3(pos));
+                    //lightprobeProjection.projs[3] = proj * R;
+                    //R = glm::translate(glm::transpose(glm::mat4(glm::vec4(1.0, 0.0, 0.0, 0.0f), glm::vec4(0.0, -1.0, 0.0, 0.0f), glm::vec4(0.0, 0.0, 1.0, 0.0f), glm::vec4(0, 0, 0, 1))), -glm::vec3(pos));
+                    //lightprobeProjection.projs[4] = proj * R;
+                    //R = glm::translate(glm::transpose(glm::mat4(glm::vec4(-1.0, 0.0, 0.0, 0.0f), glm::vec4(0.0, -1.0, 0.0, 0.0f), glm::vec4(0.0, 0.0, -1.0, 0.0f), glm::vec4(0, 0, 0, 1))), -glm::vec3(pos));
+                    //lightprobeProjection.projs[5] = proj * R;
+                    
+                    lightprobeProjection.projs[0] = proj * glm::lookAtRH(pos, pos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
+                    lightprobeProjection.projs[1] = proj * glm::lookAtRH(pos, pos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
+                    lightprobeProjection.projs[2] = proj * glm::lookAtRH(pos, pos + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
+                    lightprobeProjection.projs[3] = proj * glm::lookAtRH(pos, pos + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, -1.0));
+                    lightprobeProjection.projs[4] = proj * glm::lookAtRH(pos, pos + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, 1.0, 0.0));
+                    lightprobeProjection.projs[5] = proj * glm::lookAtRH(pos, pos + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, 1.0, 0.0));
 
                     lightprobeProjection.id = i * lightprobeSizeSquared + j * lightprobeSize_unit + k;
 
