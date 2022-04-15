@@ -52,6 +52,22 @@ layout(binding = 13) uniform aoConstant
 	int n;
 } ambientocclusion;
 
+layout(binding = 14) uniform sampler2DArray radianceProbe;
+layout(binding = 15) uniform sampler2DArray normalProbe;
+layout(binding = 16) uniform sampler2DArray distanceProbe;
+layout(binding = 17) uniform sampler2DArray lowresDistanceProbe;
+
+#include "include/ray.glsl"
+
+layout(binding = 18) uniform lightprobeInfo
+{
+	vec3 centerofProbeMap;
+	int probeGridLength;
+	float probeUnitDist;
+	int textureSize;
+	int lowtextureSize;
+} probeInfo;
+
 vec3 calcImageBasedLight(vec3 viewDir, vec3 normal, float roughness, float metal, vec3 albedo, vec3 F0, float ao)
 {
 	vec3 R = (2 * dot(normal, viewDir) * normal - viewDir);
@@ -195,6 +211,15 @@ void main()
 	resultColor *= (1.0 - shadow);
 	
 	resultColor += calcImageBasedLight(viewDir, normal, roughness, metal, albedo, F0, ao);
+	
+	probesMap MAP;
+	MAP.centerofProbeMap = probeInfo.centerofProbeMap;
+	MAP.probeGridLength = probeInfo.probeGridLength;
+	MAP.probeUnitDist = probeInfo.probeUnitDist;
+	MAP.textureSize = probeInfo.textureSize;
+	MAP.lowtextureSize = probeInfo.lowtextureSize;
+	
+	resultColor = computeRay(MAP, position, viewDir, normal);
 	
 	resultColor = tone_mapping(resultColor, setting);
     

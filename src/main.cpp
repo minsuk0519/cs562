@@ -65,15 +65,24 @@ std::array<Image*, IMAGE_INDEX_MAX> imagebuffers;
 //light probe
 constexpr unsigned int MAX_LIGHT_PROBE_UNIT = 8;
 constexpr unsigned int MAX_LIGHT_PROBE = MAX_LIGHT_PROBE_UNIT * MAX_LIGHT_PROBE_UNIT * MAX_LIGHT_PROBE_UNIT;
-unsigned int lightprobeSize_unit = 2;
-unsigned int lightprobeSize()
-{
-    return lightprobeSize_unit * lightprobeSize_unit * lightprobeSize_unit;
-}
-unsigned int lightprobeTexSize = 512;
-unsigned int lightprobeCubemapTexSize = 1024;
+unsigned int lightprobeSize_unit = 6;
+unsigned int lightprobeSize = lightprobeSize_unit * lightprobeSize_unit * lightprobeSize_unit;
+unsigned int lightprobeTexSize = 1024;
+unsigned int lightprobeCubemapTexSize = 256;
 std::array<lightprobe_proj, MAX_LIGHT_PROBE> lightprobesProj;
 float lightprobeDistant = 5.0f;
+lightprobeinfo lightprobeInfo = {
+    //centerofProbeMap
+    glm::vec3(-15,0,-20),
+    //probeGridLength
+    lightprobeSize_unit,
+    //probeUnitDist
+    lightprobeDistant,
+    //textureSize
+    lightprobeTexSize,
+    //lowtextureSize
+    lightprobeTexSize / 16,
+};
 
 //draw swapchain
 std::vector<Image> swapchainImages;
@@ -550,6 +559,11 @@ void updatelightingdescriptorset(bool blur, bool aoblur)
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 11, {uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].buf, 0, uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING].range}, {}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 12, {uniformbuffers[UNIFORM_INDEX_HAMMERSLEYBLOCK].buf, 0, uniformbuffers[UNIFORM_INDEX_HAMMERSLEYBLOCK].range}, {}},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 13, {uniformbuffers[UNIFORM_INDEX_AO_CONSTANT].buf, 0, uniformbuffers[UNIFORM_INDEX_AO_CONSTANT].range}, {}},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 14, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_LIGHTPROBE_RADIANCE]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 15, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_LIGHTPROBE_NORM]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 16, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 17, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST_LOW]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 18, {uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_INFO].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_INFO].range}, {}},
     });
 }
 
@@ -589,6 +603,11 @@ void createdescriptorset()
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 11},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 12},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 13},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 14},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 15},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 16},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 17},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 18},
     });
 
     updatelightingdescriptorset(true, true);
@@ -1308,6 +1327,11 @@ void updatebuffer()
     vkMapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_AO_CONSTANT].memory, 0, uniformbuffers[UNIFORM_INDEX_AO_CONSTANT].range, 0, &data5);
     memcpy(data5, &AOConstant, uniformbuffers[UNIFORM_INDEX_AO_CONSTANT].size);
     vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_AO_CONSTANT].memory);
+
+    void* data6;
+    vkMapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_INFO].memory, 0, uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_INFO].range, 0, &data6);
+    memcpy(data6, &lightprobeInfo, uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_INFO].size);
+    vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_INFO].memory);
 }
 
 void setupbuffer()
@@ -1334,16 +1358,16 @@ void setupbuffer()
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R8G8B8A8_SNORM, windowPtr->windowWidth, windowPtr->windowHeight, 1, imagebuffers[IMAGE_INDEX_GBUFFER_ALBEDO]);
 
     memPtr->create_fb_image(devicePtr->vulkanDevice, shadowmapFormat, shadowmapSize, shadowmapSize, 1, imagebuffers[IMAGE_INDEX_SHADOWMAP]);
-    memPtr->transitionImage(devicePtr, vulkanGraphicsQueue, imagebuffers[IMAGE_INDEX_SHADOWMAP]->image, 1, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+    memPtr->transitionImage(devicePtr, vulkanGraphicsQueue, imagebuffers[IMAGE_INDEX_SHADOWMAP]->image, 1, 1, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
     memPtr->create_fb_image(devicePtr->vulkanDevice, shadowmapFormat, shadowmapSize, shadowmapSize, 1, imagebuffers[IMAGE_INDEX_SHADOWMAP_BLUR]);
-    memPtr->transitionImage(devicePtr, vulkanGraphicsQueue, imagebuffers[IMAGE_INDEX_SHADOWMAP_BLUR]->image, 1, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+    memPtr->transitionImage(devicePtr, vulkanGraphicsQueue, imagebuffers[IMAGE_INDEX_SHADOWMAP_BLUR]->image, 1, 1, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
     memPtr->create_depth_image(devicePtr, vulkanGraphicsQueue, vulkanDepthFormat, shadowmapSize, shadowmapSize, 1, imagebuffers[IMAGE_INDEX_SHADOWMAP_DEPTH]);
 
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R32_SFLOAT, windowPtr->windowWidth, windowPtr->windowHeight, 1, imagebuffers[IMAGE_INDEX_AO]);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R32_SFLOAT, windowPtr->windowWidth, windowPtr->windowHeight, 1, imagebuffers[IMAGE_INDEX_AO_BLUR]);
-    memPtr->transitionImage(devicePtr, vulkanGraphicsQueue, imagebuffers[IMAGE_INDEX_AO_BLUR]->image, 1, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+    memPtr->transitionImage(devicePtr, vulkanGraphicsQueue, imagebuffers[IMAGE_INDEX_AO_BLUR]->image, 1, 1, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
     uint32_t miplevel;
     //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Hamarikyu_Bridge_B/14-Hamarikyu_Bridge_B_3k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
@@ -1365,10 +1389,12 @@ void setupbuffer()
     memPtr->generate_filteredtex(devicePtr, vulkanGraphicsQueue, vulkanComputeQueue, imagebuffers[IMAGE_INDEX_SKYDOME], imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE], vulkanSamplers[SAMPLE_INDEX_NORMAL]);
     memPtr->create_sampler(devicePtr, vulkanSamplers[SAMPLE_INDEX_SKYDOME], miplevel);
 
-    uint32_t size = lightprobeSize();
+    uint32_t size = lightprobeSize;
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_B10G11R11_UFLOAT_PACK32, lightprobeTexSize, lightprobeTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_RADIANCE]);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R8G8_UNORM, lightprobeTexSize, lightprobeTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_NORM]);
-    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16_SFLOAT, lightprobeTexSize, lightprobeTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST]);
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16_SFLOAT, lightprobeTexSize, lightprobeTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST], VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16_SFLOAT, lightprobeTexSize / 16, lightprobeTexSize / 16, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST_LOW], VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+    memPtr->transitionImage(devicePtr, vulkanGraphicsQueue, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST_LOW]->image, 1, size, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     size *= 6;
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, lightprobeCubemapTexSize, lightprobeCubemapTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE]);
@@ -1510,6 +1536,7 @@ void setupbuffer()
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(HammersleyBlock)*/1616, 1, uniformbuffers[UNIFORM_INDEX_GAUSSIANWEIGHT]);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(aoConstant), 1, uniformbuffers[UNIFORM_INDEX_AO_CONSTANT]);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(lightprobe_proj)*/448, MAX_LIGHT_PROBE, uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_PROJ]);
+    memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(lightprobeinfo), 1, uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_INFO]);
 
     {
         GaussianWeight weight;
@@ -1542,11 +1569,10 @@ void setupbuffer()
             {
                 for (unsigned int k = 0; k < lightprobeSize_unit; ++k)
                 {
-                    float x = (k - lightprobeSize_unit * 0.5f) * lightprobeDistant;
+                    float x = k * lightprobeDistant;
                     float y = j * lightprobeDistant;
                     float z = i * lightprobeDistant;
-                    glm::vec3 pos = glm::vec3(x, y, z);
-                    //glm::vec3 pos = glm::vec3(0.75f, 2.25f, -5.5f);
+                    glm::vec3 pos = lightprobeInfo.centerofProbeMap + glm::vec3(x, y, z);
                     lightprobe_proj lightprobeProjection;
 
                     lightprobeProjection.pos = pos;
@@ -1611,7 +1637,7 @@ void bakelightprobe()
         vkCmdBindPipeline(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelines[render::PIPELINE_LIGHTPROBE_MAP]);
 
 
-        unsigned int probeSize = lightprobeSize();
+        unsigned int probeSize = lightprobeSize;
         std::array<uint32_t, 3> dynamicoffsets = { 0, 0, 0 };
 
         for (unsigned int i = 0; i < probeSize; ++i)
@@ -1691,7 +1717,7 @@ void bakelightprobe()
         int pushconstant[3];
         pushconstant[1] = lightprobeTexSize;
         pushconstant[2] = lightprobeTexSize;
-        unsigned int size = lightprobeSize();
+        unsigned int size = lightprobeSize;
         for(unsigned int i = 0; i < size; ++i)
         {
             vkCmdBindDescriptorSets(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelineLayouts[render::PIPELINE_LIGHTPROBE_MAP_FILTER], 0, 1,
@@ -1733,6 +1759,19 @@ void bakelightprobe()
 
         vkQueueWaitIdle(vulkanGraphicsQueue);
     }
+
+    memPtr->free_image(devicePtr->vulkanDevice, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST]);
+    memPtr->free_image(devicePtr->vulkanDevice, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM]);
+    memPtr->free_image(devicePtr->vulkanDevice, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE]);
+
+    delete imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST];
+    imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST] = nullptr;
+    delete imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM];
+    imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM] = nullptr;
+    delete imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE];
+    imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE] = nullptr;
+
+    memPtr->copyimage(devicePtr, vulkanGraphicsQueue, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST_LOW], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void freebuffer()
@@ -1750,6 +1789,8 @@ void freebuffer()
 
     for (auto& image : imagebuffers)
     {
+        if (image == nullptr) continue;
+
         memPtr->free_image(devicePtr->vulkanDevice, image);
         delete image;
     }
@@ -2648,7 +2689,7 @@ int main(void)
 
         vkQueuePresentKHR(vulkanGraphicsQueue, &presentInfo);
 
-        if (vkQueueWaitIdle(vulkanGraphicsQueue) != VK_SUCCESS)
+        if (VkResult result = vkQueueWaitIdle(vulkanGraphicsQueue); result != VK_SUCCESS)
         {
             std::cout << "cannot wait queue" << std::endl;
             return -1;

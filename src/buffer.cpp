@@ -235,7 +235,7 @@ bool memory::create_depth_image(device* devicePtr, VkQueue /*graphicsqueue*/, Vk
     return true;
 }
 
-bool memory::create_fb_image(VkDevice vulkandevice, VkFormat format, uint32_t width, uint32_t height, uint32_t layer, Image*& image)
+bool memory::create_fb_image(VkDevice vulkandevice, VkFormat format, uint32_t width, uint32_t height, uint32_t layer, Image*& image, VkFlags usage)
 {
     image = new Image();
 
@@ -250,7 +250,7 @@ bool memory::create_fb_image(VkDevice vulkandevice, VkFormat format, uint32_t wi
     imageCreateInfo.arrayLayers = layer;
     imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imageCreateInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+    imageCreateInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | usage;
     imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
     if (vkCreateImage(vulkandevice, &imageCreateInfo, nullptr, &image->image))
@@ -304,14 +304,14 @@ bool memory::create_fb_image(VkDevice vulkandevice, VkFormat format, uint32_t wi
     return true;
 }
 
-void memory::transitionImage(device* devicePtr, VkQueue graphicsqueue, VkImage image, uint32_t miplevel, VkImageAspectFlags aspectmask, VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
+void memory::transitionImage(device* devicePtr, VkQueue graphicsqueue, VkImage image, uint32_t miplevel, uint32_t layer, VkImageAspectFlags aspectmask, VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
     VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask)
 {
     VkImageSubresourceRange subresourceRange = {};
     subresourceRange.aspectMask = aspectmask;
     subresourceRange.baseMipLevel = 0;
     subresourceRange.levelCount = miplevel;
-    subresourceRange.layerCount = 1;
+    subresourceRange.layerCount = layer;
 
     VkImageMemoryBarrier imageMemoryBarrier{};
     imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -424,7 +424,7 @@ bool memory::load_texture_image(device* devicePtr, VkQueue graphicsqueue, std::s
         return false;
     }
 
-    transitionImage(devicePtr, graphicsqueue, image->image, miplevel, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    transitionImage(devicePtr, graphicsqueue, image->image, miplevel, image->layer, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
     VkCommandBuffer commandBuffer;
     VkBufferImageCopy bufferimageCopy{};
@@ -560,10 +560,46 @@ void memory::generate_mipmap(device* devicePtr, VkQueue graphicsqueue, VkFormat 
     devicePtr->end_commandbuffer_submit(graphicsqueue, commandBuffer, false);
 }
 
+bool memory::copyimage(device* devicePtr, VkQueue graphicsqueue, Image* srcImage, VkImageLayout srclayout, Image*& dstImage, VkImageLayout dstlayout)
+{
+    if (dstImage->layer != srcImage->layer)
+    {
+        std::cout << "error! source image layer and destination image layer is not same!" << std::endl;
+        return false;
+    }
+
+    transitionImage(devicePtr, graphicsqueue, dstImage->image, 1, dstImage->layer, VK_IMAGE_ASPECT_COLOR_BIT, dstlayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    transitionImage(devicePtr, graphicsqueue, srcImage->image, 1, srcImage->layer, VK_IMAGE_ASPECT_COLOR_BIT, srclayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
+    VkCommandBuffer commandBuffer;
+    devicePtr->create_single_commandbuffer_begin(commandBuffer);
+    VkImageBlit blit{};
+    blit.srcOffsets[0] = { 0, 0, 0 };
+    blit.srcOffsets[1] = { static_cast<int32_t>(srcImage->width), static_cast<int32_t>(srcImage->height), 1 };
+    blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    blit.srcSubresource.mipLevel = 0;
+    blit.srcSubresource.baseArrayLayer = 0;
+    blit.srcSubresource.layerCount = srcImage->layer;
+    blit.dstOffsets[0] = { 0, 0, 0 };
+    blit.dstOffsets[1] = { static_cast<int32_t>(dstImage->width), static_cast<int32_t>(dstImage->height), 1 };
+    blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    blit.dstSubresource.mipLevel = 0;
+    blit.dstSubresource.baseArrayLayer = 0;
+    blit.dstSubresource.layerCount = srcImage->layer;
+
+    vkCmdBlitImage(commandBuffer, srcImage->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dstImage->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
+    devicePtr->end_commandbuffer_submit(graphicsqueue, commandBuffer, false);
+
+    transitionImage(devicePtr, graphicsqueue, dstImage->image, 1, dstImage->layer, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, srclayout);
+    transitionImage(devicePtr, graphicsqueue, srcImage->image, 1, srcImage->layer, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, srclayout);
+
+    return true;
+}
+
 void memory::generate_filteredtex(device* devicePtr, VkQueue graphicsqueue, VkQueue computequeue, Image*& src, Image*& target, VkSampler sampler)
 {
     create_fb_image(devicePtr->vulkanDevice, src->format, 400, 200, 1, target);
-    transitionImage(devicePtr, graphicsqueue, target->image, 1, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+    transitionImage(devicePtr, graphicsqueue, target->image, 1, src->layer, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
     VkDescriptorSetLayout descriptorsetlayout;
     VkDescriptorSet descriptorset;
