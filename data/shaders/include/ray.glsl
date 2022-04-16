@@ -129,7 +129,7 @@ TraceResult highresTraceRaytoSegment(probesMap MAP, Ray ray, vec2 startSegment, 
     float segmentDist = length(segmentdiff);
     vec2 direction = segmentdiff * (1.0 / segmentDist);
 
-    float step = (segmentDist / max(abs(segmentdiff.x), abs(segmentdiff.x))) / MAP.textureSize;
+    float step = (segmentDist / max(abs(segmentdiff.x), abs(segmentdiff.y))) / MAP.textureSize;
     
     vec3 directionFromProbeBefore = fromOctahedral(startSegment);
     float distanceFromProbeToRayBefore = max(0.0, distanceToIntersection(ray, directionFromProbeBefore));
@@ -138,7 +138,9 @@ TraceResult highresTraceRaytoSegment(probesMap MAP, Ray ray, vec2 startSegment, 
 	{
         vec2 texCoord = (direction * min(d + step * 0.5, segmentDist)) + startSegment;
 
-        float distanceFromProbeToSurface = texelFetch(distanceProbe, ivec3(MAP.textureSize * texCoord, idx), 0).r;
+		vec2 ftexCoord = MAP.textureSize * texCoord;
+		ivec2 itexCoord = clamp(ivec2(int(ftexCoord.x), int(ftexCoord.y)), ivec2(0), ivec2(MAP.textureSize - 1));
+        float distanceFromProbeToSurface = texelFetch(distanceProbe, ivec3(itexCoord, idx), 0).r;
 
         vec3 directionFromProbe = fromOctahedral(texCoord);
         
@@ -157,7 +159,7 @@ TraceResult highresTraceRaytoSegment(probesMap MAP, Ray ray, vec2 startSegment, 
             vec3 probeSpaceHitPoint = distanceFromProbeToSurface * directionFromProbe;
             float distAlongRay = dot(probeSpaceHitPoint - ray.origin, ray.direction);
 
-            vec3 normal = fromOctahedral(texelFetch(normalProbe, ivec3(MAP.textureSize * texCoord, idx), 0).xy);
+            vec3 normal = fromOctahedral(texelFetch(normalProbe, ivec3(itexCoord, idx), 0).xy);
 
             float surfaceThickness = MIN_THICKNESS + (MAX_THICKNESS - MIN_THICKNESS) * max(dot(ray.direction, directionFromProbe), 0.0) * (2 - abs(dot(ray.direction, normal))) * clamp(distAlongRay * 0.1, 0.05, 1.0);
 
@@ -392,9 +394,7 @@ vec3 computeRay(probesMap MAP, vec3 pos, vec3 wo, vec3 n)
 	vec3 local_pos = (worldSpaceRay.origin - MAP.centerofProbeMap) / MAP.probeUnitDist;
 	local_pos = clamp(floor(local_pos), vec3(0,0,0), vec3(MAP.probeGridLength - 1));
 	MAP.startPos = WORLD_INDEX(local_pos.x + local_pos.y * MAP.probeGridLength + local_pos.z * MAP.probeGridLength * MAP.probeGridLength);
-	
-	//return vec3(getProbePos(MAP, MAP.startPos) - MAP.centerofProbeMap) / (MAP.probeGridLength * MAP.probeUnitDist);
-	
+		
 	vec2 hitTexCoord;
     WORLD_INDEX index;
 	float hitDistance = 1000.0;

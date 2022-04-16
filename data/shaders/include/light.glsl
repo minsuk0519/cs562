@@ -172,9 +172,9 @@ vec3 tone_mapping(vec3 C, lightsetting setting)
 vec2 toOctahedral(vec3 v) 
 {
     float positive = abs(v.x) + abs(v.y) + abs(v.z);
-    vec2 result = v.xz * (1.0 / positive);
+    vec2 result = v.xy * (1.0 / positive);
    
-	if (v.y < 0.0) 
+	if (v.z < 0.0) 
 	{
 		float x = (result.x >= 0.0) ? 1.0 : -1.0;
 		float y = (result.y >= 0.0) ? 1.0 : -1.0;
@@ -185,6 +185,16 @@ vec2 toOctahedral(vec3 v)
 	
     return result;
 }
+
+//vec2 toOctahedral(vec3 v) 
+//{
+//	v /= dot( vec3(1), abs(v) );
+//
+//    // out-folding of the downward faces
+//    if ( v.y < 0.0 ) v.xy = (1.0 - abs(v.zx)) * sign(v.xz);
+//
+//	return v.xy * 0.5 + 0.5;
+//}
 
 vec3 fromOctahedral(vec2 uv) 
 {
@@ -200,11 +210,23 @@ vec3 fromOctahedral(vec2 uv)
 		signvec.y = (position.y >= 0.0) ? 1.0 : -1.0;
         position.xy = signvec * (vec2(1.0) - absolute.yx);
     }
-	
-	position.yz = position.zy;
 
     return position;
 }
+
+//vec3 fromOctahedral(vec2 uv) 
+//{
+//    uv = uv * 2.0 - 1.0;
+//
+//    vec2 abs_co = abs(uv);
+//    vec3 v = vec3(uv, 1.0 - (abs_co.x + abs_co.y));
+//
+//    if ( abs_co.x + abs_co.y > 1.0 ) {
+//        v.xy = (abs(uv.yx) - 1.0) * -sign(uv.xy);
+//    }
+//
+//    return v;
+//}
 
 vec3 getCubemapCoord(vec3 v)
 {

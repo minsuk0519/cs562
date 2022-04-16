@@ -70,12 +70,12 @@ unsigned int lightprobeSize = lightprobeSize_unit * lightprobeSize_unit * lightp
 unsigned int lightprobeTexSize = 1024;
 unsigned int lightprobeCubemapTexSize = 512;
 std::array<lightprobe_proj, MAX_LIGHT_PROBE> lightprobesProj;
-float lightprobeDistant = 5.0f;
-//float lightprobeDistant = 10.0f;
+float lightprobeDistant = 2.75f;
+//float lightprobeDistant = 8.00f;
 lightprobeinfo lightprobeInfo = {
     //centerofProbeMap
-    //glm::vec3(-10,-5,-15),
-    glm::vec3(-15,-10,-15),
+    glm::vec3(-7,-5.5,-12.5),
+    //glm::vec3(-4,1.0,-11.0),
     //probeGridLength
     lightprobeSize_unit,
     //probeUnitDist
@@ -110,11 +110,12 @@ constexpr uint32_t shadowmapSize = 2048;
 VkFormat shadowmapFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
 
 std::vector<object*> objects;
-glm::vec3 camerapos = glm::vec3(0.0f, 2.0f, 5.0f);
-glm::quat rotation = glm::quat(glm::vec3(glm::radians(0.0f), 0, 0));
+//glm::vec3 camerapos = glm::vec3(0.0f, 2.0f, 5.0f);
+//glm::quat rotation = glm::quat(glm::vec3(glm::radians(0.0f), 0, 0));
 
-//glm::vec3 camerapos = glm::vec3(-0.00123167, 5.61389, 2.09556);
-//glm::quat rotation = glm::quat(glm::vec3(3.08159, 0.031594, 3.14159));
+
+glm::vec3 camerapos = glm::vec3(6.1778, 5.48968, 0.507793);
+glm::quat rotation = glm::quat(glm::vec3(-0.2, 0.679999, 0));
 
 light sun;
 std::vector<light> local_light;
@@ -1227,7 +1228,8 @@ void updatebuffer()
     objects[7]->prop->albedoColor = glm::vec3(1.0f, 0.5f, 0.2f);
     objects[7]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(-3.75f, 0.1f, -9.45f)) * glm::rotate(glm::mat4(1.0f), -PI_HALF, glm::vec3(1.0f, 0.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.36f, 0.295f, 0.3f));
     objects[8]->prop->albedoColor = glm::vec3(1.0f, 0.5f, 0.2f);
-    objects[8]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(3.75f, 0.1f, -9.45f)) * glm::rotate(glm::mat4(1.0f), -PI_HALF, glm::vec3(1.0f, 0.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.36f, 0.295f, 0.3f));
+    //objects[8]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(3.75f, 0.1f, -9.45f)) * glm::rotate(glm::mat4(1.0f), -PI_HALF, glm::vec3(1.0f, 0.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.36f, 0.295f, 0.3f));
+    objects[8]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(3.75f, 100.1f, -9.45f)) * glm::rotate(glm::mat4(1.0f), -PI_HALF, glm::vec3(1.0f, 0.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.36f, 0.295f, 0.3f));
     
     objects[9]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 3.5f, -0.5f)) * glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, 2.0f, 2.0f));
 
@@ -1244,13 +1246,23 @@ void updatebuffer()
     objects[17]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(6.0f, -0.96f, 0.0f)) * glm::rotate(glm::mat4(1.0f), -PI_HALF, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.001f));
     //objects[17]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(6.0f, -0.96f, 0.0f)) * glm::rotate(glm::mat4(1.0f), -PI_HALF, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(20.0f));
 
+    //walls
+    objects[18]->prop->albedoColor = glm::vec3(0.2f, 0.3f, 0.4f);
+    objects[18]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 4.0f, 2.5f)) * glm::scale(glm::mat4(1.0f), glm::vec3(15.0f, 8.0f, 0.2f));
+
+    objects[19]->prop->albedoColor = glm::vec3(0.4f, 0.5f, 0.1f);
+    objects[19]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(7.5f, 4.0f, -5.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.2f, 8.0f, 15.0f));
+
+    objects[20]->prop->albedoColor = glm::vec3(0.6f, 0.8f, 0.7f);
+    objects[20]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 8.0f, -5.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(15.0f, 0.2f, 15.0f));
+
     for (int i = 0; i < 5; ++i)
     {
         for (int j = 0; j < 5; ++j)
         {
-            objects[18 + i * 5 + j]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f + 1.2f * (2.0f - i), 5.0f + 1.2f * (2.0f - j), 10.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
-            objects[18 + i * 5 + j]->prop->metallic = i / 5.0f;
-            objects[18 + i * 5 + j]->prop->roughness = (j / 5.0f) * (j / 5.0f);
+            objects[21 + i * 5 + j]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f + 1.2f * (2.0f - i), 5.0f + 1.2f * (2.0f - j), 10.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
+            objects[21 + i * 5 + j]->prop->metallic = i / 5.0f;
+            objects[21 + i * 5 + j]->prop->roughness = (j / 5.0f) * (j / 5.0f);
         }
     }
 
@@ -1336,6 +1348,36 @@ void updatebuffer()
     vkMapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_INFO].memory, 0, uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_INFO].range, 0, &data6);
     memcpy(data6, &lightprobeInfo, uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_INFO].size);
     vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_INFO].memory);
+
+    ObjectProperties prop;
+
+    VkDeviceSize modeloffset = 128 * static_cast<uint32_t>(local_light.size());
+    for (unsigned int i = 0; i < lightprobeSize_unit; ++i)
+    {
+        for (unsigned int j = 0; j < lightprobeSize_unit; ++j)
+        {
+            for (unsigned int k = 0; k < lightprobeSize_unit; ++k)
+            {
+                float x = k * lightprobeInfo.probeUnitDist;
+                float y = j * lightprobeInfo.probeUnitDist;
+                float z = i * lightprobeInfo.probeUnitDist;
+                glm::vec3 pos = lightprobeInfo.centerofProbeMap + glm::vec3(x, y, z);
+
+                prop.albedoColor = (glm::vec3(10, 10, 10));
+                if (k == 0) prop.albedoColor = glm::vec3(0, 10, 0);
+                if (j == 0) prop.albedoColor = glm::vec3(0, 0, 10);
+                if (i == 0) prop.albedoColor = glm::vec3(10, 0, 10);
+                if (i == 0 && j == 0 && k == 0) prop.albedoColor = glm::vec3(50, 0, 0);
+                prop.modelMat = glm::translate(glm::mat4(1.0f), pos) * glm::scale(glm::mat4(1.0f), glm::vec3(LIGHT_SPHERE_SIZE));
+
+                void* data1;
+                vkMapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_OBJECT_DEBUG].memory, modeloffset, uniformbuffers[UNIFORM_INDEX_OBJECT_DEBUG].range, 0, &data1);
+                memcpy(data1, &prop, 128);
+                vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_OBJECT_DEBUG].memory);
+                modeloffset += 128;
+            }
+        }
+    }
 }
 
 void setupbuffer()
@@ -1522,6 +1564,19 @@ void setupbuffer()
         newobject->create_object(static_cast<unsigned int>(dragondata[0].indices.size()), vertexbuffers[VERTEX_INDEX_DRAGON]);
         objects.push_back(newobject);
 
+        vertexdata = generateBox();
+        newobject = new object();
+        newobject->create_object(static_cast<unsigned int>(vertexdata.indices.size()), vertexbuffers[VERTEX_INDEX_BOX]);
+        objects.push_back(newobject);
+
+        newobject = new object();
+        newobject->create_object(static_cast<unsigned int>(vertexdata.indices.size()), vertexbuffers[VERTEX_INDEX_BOX]);
+        objects.push_back(newobject);
+
+        newobject = new object();
+        newobject->create_object(static_cast<unsigned int>(vertexdata.indices.size()), vertexbuffers[VERTEX_INDEX_BOX]);
+        objects.push_back(newobject);
+
         for (int i = 0; i < 25; ++i)
         {
             newobject = new object();
@@ -1561,12 +1616,22 @@ void setupbuffer()
     }
 
 
+    updatebuffer();
+}
+
+void bakelightprobe()
+{
+    //if (imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE] == nullptr)
+    //{
+    //    uint32_t cubemapsize = lightprobeSize * 6;
+    //    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, lightprobeCubemapTexSize, lightprobeCubemapTexSize, cubemapsize, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE]);
+    //    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, lightprobeCubemapTexSize, lightprobeCubemapTexSize, cubemapsize, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM]);
+    //    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16_SFLOAT, lightprobeCubemapTexSize, lightprobeCubemapTexSize, cubemapsize, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST]);
+    //}
+
     {
-        ObjectProperties prop;
-
-        VkDeviceSize modeloffset = 128 * static_cast<uint32_t>(local_light.size());
-
         glm::mat4 proj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 1000.0f);
+
         //force it to right handed
         proj[1][1] *= -1.0f;
         VkDeviceSize offset = 0;
@@ -1577,26 +1642,13 @@ void setupbuffer()
             {
                 for (unsigned int k = 0; k < lightprobeSize_unit; ++k)
                 {
-                    float x = k * lightprobeDistant;
-                    float y = j * lightprobeDistant;
-                    float z = i * lightprobeDistant;
+                    float x = k * lightprobeInfo.probeUnitDist;
+                    float y = j * lightprobeInfo.probeUnitDist;
+                    float z = i * lightprobeInfo.probeUnitDist;
                     glm::vec3 pos = lightprobeInfo.centerofProbeMap + glm::vec3(x, y, z);
                     lightprobe_proj lightprobeProjection;
 
                     lightprobeProjection.pos = pos;
-
-                    prop.albedoColor = (glm::vec3(10, 10, 10));
-                    if (k == 0) prop.albedoColor = glm::vec3(0, 10, 0);
-                    if (j == 0) prop.albedoColor = glm::vec3(0, 0, 10);
-                    if (i == 0) prop.albedoColor = glm::vec3(10, 0, 10);
-                    if (i == 0 && j == 0 && k == 0) prop.albedoColor = glm::vec3(50, 0, 0);
-                    prop.modelMat = glm::translate(glm::mat4(1.0f), pos) * glm::scale(glm::mat4(1.0f), glm::vec3(LIGHT_SPHERE_SIZE));
-
-                    void* data1;
-                    vkMapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_OBJECT_DEBUG].memory, modeloffset, uniformbuffers[UNIFORM_INDEX_OBJECT_DEBUG].range, 0, &data1);
-                    memcpy(data1, &prop, 128);
-                    vkUnmapMemory(devicePtr->vulkanDevice, uniformbuffers[UNIFORM_INDEX_OBJECT_DEBUG].memory);
-                    modeloffset += 128;
 
                     //glm::mat4 R = glm::translate(glm::transpose(glm::mat4(glm::vec4(0.0, 0.0, 1.0, 0.0f), glm::vec4(0.0, -1.0, 0.0, 0.0f), glm::vec4(-1.0, 0.0, 0.0, 0.0f), glm::vec4(0, 0, 0, 1))), -glm::vec3(pos));
                     //lightprobeProjection.projs[0] = proj * R;
@@ -1610,13 +1662,25 @@ void setupbuffer()
                     //lightprobeProjection.projs[4] = proj * R;
                     //R = glm::translate(glm::transpose(glm::mat4(glm::vec4(-1.0, 0.0, 0.0, 0.0f), glm::vec4(0.0, -1.0, 0.0, 0.0f), glm::vec4(0.0, 0.0, -1.0, 0.0f), glm::vec4(0, 0, 0, 1))), -glm::vec3(pos));
                     //lightprobeProjection.projs[5] = proj * R;
+
+                    lightprobeProjection.projs[0] = glm::mat4(0.0f);
+                    lightprobeProjection.projs[1] = glm::mat4(0.0f);
+                    lightprobeProjection.projs[2] = glm::mat4(0.0f);
+                    lightprobeProjection.projs[3] = glm::mat4(0.0f);
+                    lightprobeProjection.projs[4] = glm::mat4(0.0f);
+                    lightprobeProjection.projs[5] = glm::mat4(0.0f);
+                    //confirmed
+                    lightprobeProjection.projs[0] = proj * glm::lookAtLH(pos, pos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0));
+                    lightprobeProjection.projs[1] = proj * glm::lookAtLH(pos, pos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0));
+                    lightprobeProjection.projs[2] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
+                    lightprobeProjection.projs[4] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0));
+                    lightprobeProjection.projs[5] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, -1.0, 0.0));
+
+                    //not sured
+                    lightprobeProjection.projs[3] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, -1.0));
                     
-                    lightprobeProjection.projs[0] = proj * glm::lookAtRH(pos, pos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
-                    lightprobeProjection.projs[1] = proj * glm::lookAtRH(pos, pos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
-                    lightprobeProjection.projs[2] = proj * glm::lookAtRH(pos, pos + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
-                    lightprobeProjection.projs[3] = proj * glm::lookAtRH(pos, pos + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, -1.0));
-                    lightprobeProjection.projs[4] = proj * glm::lookAtRH(pos, pos + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, 1.0, 0.0));
-                    lightprobeProjection.projs[5] = proj * glm::lookAtRH(pos, pos + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, 1.0, 0.0));
+                    
+
 
                     lightprobeProjection.id = i * lightprobeSizeSquared + j * lightprobeSize_unit + k;
 
@@ -1632,11 +1696,6 @@ void setupbuffer()
         }
     }
 
-    updatebuffer();
-}
-
-void bakelightprobe()
-{
     //prebuilt light probes
     {
         VkCommandBufferBeginInfo commandBufferBeginInfo{};
@@ -1794,16 +1853,16 @@ void bakelightprobe()
         vkQueueWaitIdle(vulkanGraphicsQueue);
     }
 
-    memPtr->free_image(devicePtr->vulkanDevice, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST]);
-    memPtr->free_image(devicePtr->vulkanDevice, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM]);
-    memPtr->free_image(devicePtr->vulkanDevice, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE]);
-
-    delete imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST];
-    imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST] = nullptr;
-    delete imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM];
-    imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM] = nullptr;
-    delete imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE];
-    imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE] = nullptr;
+    //memPtr->free_image(devicePtr->vulkanDevice, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST]);
+    //memPtr->free_image(devicePtr->vulkanDevice, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM]);
+    //memPtr->free_image(devicePtr->vulkanDevice, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE]);
+    //
+    //delete imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST];
+    //imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST] = nullptr;
+    //delete imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM];
+    //imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM] = nullptr;
+    //delete imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE];
+    //imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE] = nullptr;
 
     memPtr->copyimage(devicePtr, vulkanGraphicsQueue, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST_LOW], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
@@ -2170,6 +2229,19 @@ int main(void)
 
                 ImGui::MenuItem("LocalLightDisabled", 0, &nolocallight);
                 
+                ImGui::EndMenu();
+            }
+
+            if (ImGui::BeginMenu("GI"))
+            {
+                ImGui::DragFloat3("Position##GIPROBE", &lightprobeInfo.centerofProbeMap.x, 0.01f);
+                ImGui::DragFloat("UnitDistance##GIPROBE", &lightprobeInfo.probeUnitDist, 0.01f);
+
+                if (ImGui::Button("RebakeLightingMap##GIPROBE"))
+                {
+                    bakelightprobe();
+                }
+
                 ImGui::EndMenu();
             }
 
