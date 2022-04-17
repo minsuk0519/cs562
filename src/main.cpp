@@ -67,7 +67,7 @@ constexpr unsigned int MAX_LIGHT_PROBE_UNIT = 8;
 constexpr unsigned int MAX_LIGHT_PROBE = MAX_LIGHT_PROBE_UNIT * MAX_LIGHT_PROBE_UNIT * MAX_LIGHT_PROBE_UNIT;
 unsigned int lightprobeSize_unit = 6;
 unsigned int lightprobeSize = lightprobeSize_unit * lightprobeSize_unit * lightprobeSize_unit;
-unsigned int lightprobeTexSize = 1024;
+unsigned int lightprobeTexSize = 256;
 unsigned int lightprobeCubemapTexSize = 512;
 std::array<lightprobe_proj, MAX_LIGHT_PROBE> lightprobesProj;
 float lightprobeDistant = 2.75f;
@@ -84,6 +84,9 @@ lightprobeinfo lightprobeInfo = {
     lightprobeTexSize,
     //lowtextureSize
     lightprobeTexSize / 16,
+
+    0.03f,
+    0.50f,
 };
 
 //draw swapchain
@@ -1672,12 +1675,14 @@ void bakelightprobe()
                     //confirmed
                     lightprobeProjection.projs[0] = proj * glm::lookAtLH(pos, pos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0));
                     lightprobeProjection.projs[1] = proj * glm::lookAtLH(pos, pos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0));
-                    lightprobeProjection.projs[2] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
+                    lightprobeProjection.projs[2] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
+                    lightprobeProjection.projs[3] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, -1.0));
                     lightprobeProjection.projs[4] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0));
                     lightprobeProjection.projs[5] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, -1.0, 0.0));
+                    
 
-                    //not sured
-                    lightprobeProjection.projs[3] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, -1.0));
+                    //lightprobeProjection.projs[0] = proj * glm::lookAtLH(pos, pos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0));
+
                     
                     
 
@@ -2236,6 +2241,8 @@ int main(void)
             {
                 ImGui::DragFloat3("Position##GIPROBE", &lightprobeInfo.centerofProbeMap.x, 0.01f);
                 ImGui::DragFloat("UnitDistance##GIPROBE", &lightprobeInfo.probeUnitDist, 0.01f);
+                ImGui::DragFloat("MinThickness##GIPROBE", &lightprobeInfo.minThickness, 0.001f);
+                ImGui::DragFloat("MaxThickness##GIPROBE", &lightprobeInfo.maxThickness, 0.001f);
 
                 if (ImGui::Button("RebakeLightingMap##GIPROBE"))
                 {

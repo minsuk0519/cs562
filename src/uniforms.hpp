@@ -163,6 +163,9 @@ struct lightprobeinfo
 	float probeUnitDist;
 	unsigned int textureSize;
 	unsigned int lowtextureSize;
+
+	float minThickness;
+	float maxThickness;
 };
 
 enum UNIFORM_INDEX
