@@ -1,6 +1,11 @@
 #ifndef _RAY_GLSL_
 #define _RAY_GLSL_
 
+precision highp int;
+precision highp float;
+precision highp sampler2D;
+precision highp sampler2DArray;
+
 #include "light.glsl"
 
 #define TraceResult int
@@ -96,7 +101,7 @@ LOCAL_INDEX findNearestIndex(probesMap MAP, vec3 pos)
 	for(int i = 0; i < CUBIC_CAGE; ++i)
 	{
 		vec3 probepos = min(startpos + vec3(i & 1, (i >> 1) & 1, (i >> 2) & 1), vec3(MAP.probeGridLength - 1));
-		float d = length(probepos - startpos);
+		float d = length(probepos - pos);
 		
 		if(mindist > d)
 		{
@@ -232,7 +237,7 @@ bool lowresTraceRaytoSegment(probesMap MAP, Ray ray, inout vec2 startSegment, ve
 		
         float rayDistanceToNextPixelEdge = min(intersectionPixelDistance.x, intersectionPixelDistance.y * absInvdPY);
 
-        highresTexCoord = (P + dP * rayDistanceToNextPixelEdge) / MAP.lowtextureSize;
+        highresTexCoord = (P + dP * rayDistanceToNextPixelEdge) / float(MAP.lowtextureSize);
         highresTexCoord = permute ? highresTexCoord.yx : highresTexCoord;
 		
 		diff = highresTexCoord - startSegment;
@@ -246,7 +251,7 @@ bool lowresTraceRaytoSegment(probesMap MAP, Ray ray, inout vec2 startSegment, ve
         
         if (sceneRadialDistMin < maxRadialRayDistance) 
 		{
-            startSegment = (permute ? P.yx : P) / MAP.lowtextureSize;
+            startSegment = (permute ? P.yx : P) / float(MAP.lowtextureSize);
 			return true;
         }
 
@@ -289,7 +294,7 @@ TraceResult traceRaytoSegment(probesMap MAP, Ray ray, float t0, float t1, WORLD_
         vec2 texCoordRayDirection = normalize(endOctCoord - startOctCoord);
 
         if (dot(texCoordRayDirection, endOctCoord - endTexCoord) <= (1.0 / MAP.textureSize)) return TRACE_RESULT_MISS;
-        else startOctCoord = endTexCoord + (texCoordRayDirection / MAP.textureSize) * 0.1;
+        else startOctCoord = endTexCoord + (texCoordRayDirection / MAP.textureSize) * EPSILON;
     }
 
     return TRACE_RESULT_MISS;
@@ -341,7 +346,7 @@ TraceResult singleProbeTrace(probesMap MAP, Ray ray, WORLD_INDEX idx, inout floa
 			if(result != TRACE_RESULT_MISS) return result;
         }
 	}
-	
+		
 	return TRACE_RESULT_MISS;
 }
 
@@ -384,8 +389,26 @@ bool lightFieldTrace(probesMap MAP, Ray ray, out vec2 hitTexCoord, out WORLD_IND
 		
 		selected_probe_idx = findNextLocalIndex(selected_probe_idx);
 	}
-
 	return false;
+	
+	
+	//hitProbeIndex = convertWorldIndex(MAP, findNearestIndex(MAP, ray.origin));
+	//hitTexCoord = toOctahedral(ray.direction);
+	//
+	//float probeDistance = texelFetch(distanceProbe, ivec3(hitTexCoord * MAP.textureSize, hitProbeIndex), 0).r;
+	//if (probeDistance < 1000) 
+	//{
+	//	vec3 hitLocation = getProbePos(MAP, hitProbeIndex) + ray.direction * probeDistance;
+	//	tMax = length(ray.origin - hitLocation);
+	//	hitTexCoord = toOctahedral(ray.origin - hitLocation);
+	//	return true;
+	//}
+	//else return false;
+	//
+	//return true;
+	
+	
+
 	hitTexCoord = toOctahedral(ray.direction);
 	float distanceFromProbeToSurface = texelFetch(distanceProbe, ivec3((hitTexCoord * MAP.textureSize), convertWorldIndex(MAP, selected_probe_idx)), 0).r;
 	vec3 directionFromProbe = fromOctahedral(hitTexCoord);
@@ -396,7 +419,7 @@ bool lightFieldTrace(probesMap MAP, Ray ray, out vec2 hitTexCoord, out WORLD_IND
 	if(distAlongRay < 1000 && distAlongRay > 0)
 	{
 		hitProbeIndex = convertWorldIndex(MAP, selected_probe_idx);
-		hitTexCoord = toOctahedral(ray.origin + ray.direction * distAlongRay);
+		hitTexCoord = toOctahedral(getProbePos(MAP, hitProbeIndex) + ray.direction * distAlongRay);
 		return true;
 	}
 	
@@ -406,6 +429,12 @@ bool lightFieldTrace(probesMap MAP, Ray ray, out vec2 hitTexCoord, out WORLD_IND
 	
 	return false;
 }
+
+float xi[3] = {
+	0.25,
+	0.5,
+	0.75,
+};
 
 vec3 computeRay(probesMap MAP, vec3 pos, vec3 wo, vec3 n)
 {
@@ -420,19 +449,55 @@ vec3 computeRay(probesMap MAP, vec3 pos, vec3 wo, vec3 n)
 	//local_pos.y = MAP.probeGridLength - 1 - local_pos.y;
 	MAP.startPos = WORLD_INDEX(local_pos.x + local_pos.y * MAP.probeGridLength + local_pos.z * MAP.probeGridLength * MAP.probeGridLength);
 	
-		
 	vec2 hitTexCoord;
     WORLD_INDEX index;
 	float hitDistance = 1000.0;
-    if (!lightFieldTrace(MAP, worldSpaceRay, hitTexCoord, index, hitDistance)) 
-	{
-		return vec3(0,0,0);
-        //return computeGlossyEnvironmentMapLighting(wi, true, glossyExponent, false);
-    } 
-	else 
+	
+	
+	//vec3 color = vec3(0.0);
+	//int total = 0;
+	//for(int i = 0; i < 3; ++i)
+	//{
+	//	for(int j = 0; j < 3; ++j)
+	//	{
+	//		float alpha = 0;
+	//		float costheta = cos(atan(alpha * sqrt(xi[i]) / (sqrt(1 - xi[i]))));
+	//		
+	//		float s = sqrt(1 - costheta * costheta);
+	//		vec3 K = vec3(s * cos(2 * PI * xi[j]), s * sin(2 * PI * xi[j]), costheta);
+	//
+	//		vec3 B = normalize(vec3(-n.y, n.x, 0));
+	//		vec3 C = cross(n, B);
+	//		
+	//		vec3 m;
+	//		if (abs(n.z - 1) < 0.001) m = K;
+	//		else if (abs(n.z + 1) < 0.001) m = vec3(K.x, -K.y, -K.z);
+	//		else m = K.x * B + K.y * C + K.z * n;
+	//
+	//		wi = 2 * abs(dot(wo, m)) * m - wo;
+	//		
+	//		if (lightFieldTrace(MAP, worldSpaceRay, hitTexCoord, index, hitDistance)) 
+	//		{
+	//			color += textureLod(radianceProbe, vec3(hitTexCoord, index), 0).rgb;
+	//			++total;
+	//		}
+	//	}
+	//}
+	//return color / total;
+
+    
+	
+	
+	
+	
+	
+	
+	if (lightFieldTrace(MAP, worldSpaceRay, hitTexCoord, index, hitDistance)) 
 	{
         return textureLod(radianceProbe, vec3(hitTexCoord, index), 0).rgb;
-    }
+	}
+	
+	return vec3(0,0,0);
 }
 
 #endif

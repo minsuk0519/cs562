@@ -22,7 +22,7 @@ void main()
 	vec2 outTexcoord = gl_FragCoord.xy / vec2(float(width), float(height));
 
 	vec3 dir = fromOctahedral(outTexcoord);
-	dir = normalize(dir);
+	//dir = normalize(dir);
 	vec3 cubemapCoord = getCubemapCoord(dir);
 	cubemapCoord.z += id * 6;
 

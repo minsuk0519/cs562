@@ -63,18 +63,18 @@ std::array<VertexBuffer, VERTEX_INDEX_MAX> vertexbuffers;
 std::array<Image*, IMAGE_INDEX_MAX> imagebuffers;
 
 //light probe
-constexpr unsigned int MAX_LIGHT_PROBE_UNIT = 8;
+constexpr unsigned int MAX_LIGHT_PROBE_UNIT = 6;
 constexpr unsigned int MAX_LIGHT_PROBE = MAX_LIGHT_PROBE_UNIT * MAX_LIGHT_PROBE_UNIT * MAX_LIGHT_PROBE_UNIT;
 unsigned int lightprobeSize_unit = 6;
 unsigned int lightprobeSize = lightprobeSize_unit * lightprobeSize_unit * lightprobeSize_unit;
 unsigned int lightprobeTexSize = 256;
 unsigned int lightprobeCubemapTexSize = 512;
 std::array<lightprobe_proj, MAX_LIGHT_PROBE> lightprobesProj;
-float lightprobeDistant = 2.75f;
+float lightprobeDistant = 3.0f;
 //float lightprobeDistant = 8.00f;
 lightprobeinfo lightprobeInfo = {
     //centerofProbeMap
-    glm::vec3(-7,-5.5,-12.5),
+    glm::vec3(-7.5,0.0,-12.5),
     //glm::vec3(-4,1.0,-11.0),
     //probeGridLength
     lightprobeSize_unit,
@@ -1218,11 +1218,11 @@ void updatebuffer()
     objects[2]->prop->albedoColor = glm::vec3(0.4f, 0.4f, 0.4f);
     objects[2]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(15.0f, 0.2f, 15.0f));
 
-    objects[3]->prop->albedoColor = glm::vec3(0.4f, 0.1f, 0.4f);
-    objects[3]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(-7.5f, 4.0f, -5.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.2f, 8.0f, 15.0f));
+    objects[3]->prop->albedoColor = glm::vec3(1.0f, 0.8f, 0.9f);
+    objects[3]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(-7.5f, 7.5f, -5.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.2f, 15.0f, 15.0f));
     //backwall
     objects[4]->prop->albedoColor = glm::vec3(0.4f, 0.1f, 0.4f);
-    objects[4]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 4.0f, -12.5f)) * glm::scale(glm::mat4(1.0f), glm::vec3(15.0f, 8.0f, 0.2f));
+    objects[4]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 7.5f, -12.5f)) * glm::scale(glm::mat4(1.0f), glm::vec3(15.0f, 15.0f, 0.2f));
 
     //screen
     objects[5]->prop->albedoColor = glm::vec3(0.2f, 0.8f, 0.5f);
@@ -1251,13 +1251,13 @@ void updatebuffer()
 
     //walls
     objects[18]->prop->albedoColor = glm::vec3(0.2f, 0.3f, 0.4f);
-    objects[18]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 4.0f, 2.5f)) * glm::scale(glm::mat4(1.0f), glm::vec3(15.0f, 8.0f, 0.2f));
+    objects[18]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 7.5f, 2.5f)) * glm::scale(glm::mat4(1.0f), glm::vec3(15.0f, 15.0f, 0.2f));
 
     objects[19]->prop->albedoColor = glm::vec3(0.4f, 0.5f, 0.1f);
-    objects[19]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(7.5f, 4.0f, -5.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.2f, 8.0f, 15.0f));
+    objects[19]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(7.5f, 7.5f, -5.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.2f, 15.0f, 15.0f));
 
     objects[20]->prop->albedoColor = glm::vec3(0.6f, 0.8f, 0.7f);
-    objects[20]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 8.0f, -5.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(15.0f, 0.2f, 15.0f));
+    objects[20]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 15.0f, -5.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(15.0f, 0.2f, 15.0f));
 
     for (int i = 0; i < 5; ++i)
     {
