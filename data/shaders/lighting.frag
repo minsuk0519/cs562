@@ -69,6 +69,8 @@ layout(binding = 18) uniform lightprobeInfo
 	
 	float min_thickness;
 	float max_thickness;
+	
+	float debugValue;
 } probeInfo;
 
 vec3 calcImageBasedLight(vec3 viewDir, vec3 normal, float roughness, float metal, vec3 albedo, vec3 F0, float ao)
@@ -223,6 +225,7 @@ void main()
 	MAP.lowtextureSize = probeInfo.lowtextureSize;
 	MAP.min_thickness = probeInfo.min_thickness;
 	MAP.max_thickness = probeInfo.max_thickness;
+	MAP.debugValue = probeInfo.debugValue;
 	
 	resultColor = computeRay(MAP, position, viewDir, normal);
 	

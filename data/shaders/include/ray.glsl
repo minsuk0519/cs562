@@ -51,11 +51,13 @@ struct probesMap
 	
 	float min_thickness;
 	float max_thickness;
+	
+	float debugValue;
 };
 
 LOCAL_INDEX findNextLocalIndex(LOCAL_INDEX idx)
 {
-	return (idx + FIND_PROBE_HEURISTIC) & (CUBIC_CAGE - 1);
+	return (idx + FIND_PROBE_HEURISTIC) % (CUBIC_CAGE);
 }
 
 
@@ -90,7 +92,7 @@ vec3 getProbePos(probesMap MAP, WORLD_INDEX idx)
 	return MAP.centerofProbeMap + vec3(x, y, z) * MAP.probeUnitDist;
 }
 
-LOCAL_INDEX findNearestIndex(probesMap MAP, vec3 pos)
+LOCAL_INDEX findNearestIndex(probesMap MAP, vec3 N, vec3 pos)
 {
 	vec3 local_pos = (pos - MAP.centerofProbeMap) / MAP.probeUnitDist;
 	vec3 startpos = clamp(floor(local_pos), vec3(0,0,0), vec3(MAP.probeGridLength - 1));
@@ -101,8 +103,9 @@ LOCAL_INDEX findNearestIndex(probesMap MAP, vec3 pos)
 	for(int i = 0; i < CUBIC_CAGE; ++i)
 	{
 		vec3 probepos = min(startpos + vec3(i & 1, (i >> 1) & 1, (i >> 2) & 1), vec3(MAP.probeGridLength - 1));
-		float d = length(probepos - pos);
-		
+		vec3 diff = probepos - local_pos;
+		float d = length(diff);
+				
 		if(mindist > d)
 		{
 			mindist = d;
@@ -115,14 +118,21 @@ LOCAL_INDEX findNearestIndex(probesMap MAP, vec3 pos)
 
 float distanceToIntersection(Ray r, vec3 v) 
 {
-    float numer = 1.0;
-    float denom = v.y * r.direction.z - v.z * r.direction.y;
+    float numer = r.origin.x * v.z - r.origin.z * v.x;
+    float denom = v.x * r.direction.z - v.z * r.direction.x;
 
-    if (abs(denom) > 0.1)  numer = r.origin.y * r.direction.z - r.origin.z * r.direction.y;
-    else 
+    if (abs(denom) < EPSILON) 
 	{
-        numer = r.origin.x * r.direction.y - r.origin.y * r.direction.x;
-        denom = v.x * r.direction.y - v.y * r.direction.x;
+        if(abs(v.x) < EPSILON)
+		{
+			numer = r.origin.y * v.z - r.origin.z * v.y;
+			denom = v.y * r.direction.z - v.z * r.direction.y;
+		}
+		else
+		{
+			numer = r.origin.x * v.y - r.origin.y * v.x;
+			denom = v.x * r.direction.y - v.y * r.direction.x;
+		}
     }
 
     return numer / denom;
@@ -146,7 +156,7 @@ TraceResult highresTraceRaytoSegment(probesMap MAP, Ray ray, vec2 startSegment, 
 		vec2 ftexCoord = MAP.textureSize * texCoord;
 		ivec2 itexCoord = clamp(ivec2(int(ftexCoord.x), int(ftexCoord.y)), ivec2(0), ivec2(MAP.textureSize - 1));
         float distanceFromProbeToSurface = texelFetch(distanceProbe, ivec3(itexCoord, idx), 0).r;
-
+				
         vec3 directionFromProbe = fromOctahedral(texCoord);
         
         vec2 texCoordAfter = (direction * min(d + step, segmentDist)) + startSegment;
@@ -257,7 +267,8 @@ bool lowresTraceRaytoSegment(probesMap MAP, Ray ray, inout vec2 startSegment, ve
 
         P += dP * (rayDistanceToNextPixelEdge + EPSILON);
 		
-		if((end.x - stepDir * (P.x)) < EPSILON) break;
+		if (dot(diff, diff) > maxTexCoordDistance) break;
+		if((end.x - stepDir * (P.x)) >= EPSILON) break;
     }
 
     startSegment = endSegment;
@@ -283,13 +294,13 @@ TraceResult traceRaytoSegment(probesMap MAP, Ray ray, float t0, float t1, WORLD_
 
         vec2 originalStartCoord = startOctCoord;
 		
-        if (!lowresTraceRaytoSegment(MAP, ray, startOctCoord, endOctCoord, idx, endTexCoord)) return TRACE_RESULT_MISS;
-		else
-		{
-            TraceResult result = highresTraceRaytoSegment(MAP, ray, startOctCoord, endTexCoord, idx, tMin, tMax, hitTexCoord);
-			
-            if (result != TRACE_RESULT_MISS) return result;
-        }
+        //if (!lowresTraceRaytoSegment(MAP, ray, startOctCoord, endOctCoord, idx, endTexCoord)) return TRACE_RESULT_MISS;
+		//else
+		//{
+			TraceResult result = highresTraceRaytoSegment(MAP, ray, startOctCoord, endTexCoord, idx, tMin, tMax, hitTexCoord);
+					
+			if (result != TRACE_RESULT_MISS) return result;
+        //}
 
         vec2 texCoordRayDirection = normalize(endOctCoord - startOctCoord);
 
@@ -305,12 +316,20 @@ TraceResult singleProbeTrace(probesMap MAP, Ray ray, WORLD_INDEX idx, inout floa
 	Ray localRay;
 	localRay.origin = ray.origin - getProbePos(MAP, idx);
 	localRay.direction = ray.direction;
+	
+	vec2 originOctahedral = toOctahedral(localRay.origin);
+	float origindepth = texelFetch(distanceProbe, ivec3(originOctahedral * MAP.textureSize, idx), 0).r;
+	if(origindepth < length(localRay.origin) - EPSILON)
+	{
+		return TRACE_RESULT_UNKNOWN;
+	}
+	
 
 	//get the intersection time with x, y, z plane
 	vec3 directionFrac = vec3(1.0) / localRay.direction;
     vec3 t = localRay.origin * -directionFrac;
 	
-	vec3 sortedT;
+	vec3 sortedT = t;
 	sortedT.x = max(t.x, t.y);
 	sortedT.y = min(t.y, t.x);
 	if(t.z > sortedT.x)
@@ -339,7 +358,7 @@ TraceResult singleProbeTrace(probesMap MAP, Ray ray, WORLD_INDEX idx, inout floa
 
     for (int i = 0; i < 4; ++i)
 	{
-		if ((tsegments[i + 1] - tsegments[i]) >= EPSILON) 
+		if (abs(tsegments[i + 1] - tsegments[i]) >= EPSILON) 
 		{
             TraceResult result = traceRaytoSegment(MAP, localRay, tsegments[i], tsegments[i + 1], idx, tMin, tMax, hitTexCoord);
             
@@ -350,11 +369,11 @@ TraceResult singleProbeTrace(probesMap MAP, Ray ray, WORLD_INDEX idx, inout floa
 	return TRACE_RESULT_MISS;
 }
 
-bool lightFieldTrace(probesMap MAP, Ray ray, out vec2 hitTexCoord, out WORLD_INDEX hitProbeIndex, inout float tMax)
+bool lightFieldTrace(probesMap MAP, Ray ray, vec3 norm, out vec2 hitTexCoord, out WORLD_INDEX hitProbeIndex, inout float tMax)
 {
 	TraceResult result = TRACE_RESULT_UNKNOWN;
 	
-	LOCAL_INDEX selected_probe_idx = findNearestIndex(MAP, ray.origin);
+	LOCAL_INDEX selected_probe_idx = findNearestIndex(MAP, norm, ray.origin);
 
 	float tMin = 0.0;
 	
@@ -363,6 +382,14 @@ bool lightFieldTrace(probesMap MAP, Ray ray, out vec2 hitTexCoord, out WORLD_IND
 	for(int i = 0; i < CUBIC_CAGE; ++i)
 	{
 		WORLD_INDEX world_selected_probe_idx = convertWorldIndex(MAP, selected_probe_idx);
+		
+		//vec3 diff = getProbePos(MAP, world_selected_probe_idx) - ray.origin;
+		//if(dot(diff, norm) < 0.0) 
+		//{
+		//	selected_probe_idx = findNextLocalIndex(selected_probe_idx);
+		//	continue;
+		//}
+		
 		result = singleProbeTrace(MAP, ray, world_selected_probe_idx, tMin, tMax, hitTexCoord);
 		
 		if(result != TRACE_RESULT_UNKNOWN)
@@ -370,10 +397,11 @@ bool lightFieldTrace(probesMap MAP, Ray ray, out vec2 hitTexCoord, out WORLD_IND
 			if(result == TRACE_RESULT_HIT)
 			{
 				hitProbeIndex = world_selected_probe_idx;
+				return true;
 			}
 			else
 			{
-				hitProbeIndex = convertWorldIndex(MAP, findNearestIndex(MAP, ray.origin));
+				hitProbeIndex = convertWorldIndex(MAP, findNearestIndex(MAP, norm, ray.origin));
 				hitTexCoord = toOctahedral(ray.direction);
 				
 				float probeDistance = texelFetch(distanceProbe, ivec3(hitTexCoord * MAP.textureSize, hitProbeIndex), 0).r;
@@ -383,58 +411,17 @@ bool lightFieldTrace(probesMap MAP, Ray ray, out vec2 hitTexCoord, out WORLD_IND
 					tMax = length(ray.origin - hitLocation);
 				}
 			}
-						
+			
 			return true;
 		}
 		
 		selected_probe_idx = findNextLocalIndex(selected_probe_idx);
 	}
-	return false;
 	
-	
-	//hitProbeIndex = convertWorldIndex(MAP, findNearestIndex(MAP, ray.origin));
-	//hitTexCoord = toOctahedral(ray.direction);
-	//
-	//float probeDistance = texelFetch(distanceProbe, ivec3(hitTexCoord * MAP.textureSize, hitProbeIndex), 0).r;
-	//if (probeDistance < 1000) 
-	//{
-	//	vec3 hitLocation = getProbePos(MAP, hitProbeIndex) + ray.direction * probeDistance;
-	//	tMax = length(ray.origin - hitLocation);
-	//	hitTexCoord = toOctahedral(ray.origin - hitLocation);
-	//	return true;
-	//}
-	//else return false;
-	//
-	//return true;
-	
-	
+	if(hitProbeIndex != -1) return true;
 
-	hitTexCoord = toOctahedral(ray.direction);
-	float distanceFromProbeToSurface = texelFetch(distanceProbe, ivec3((hitTexCoord * MAP.textureSize), convertWorldIndex(MAP, selected_probe_idx)), 0).r;
-	vec3 directionFromProbe = fromOctahedral(hitTexCoord);
-	
-	vec3 probeSpaceHitPoint = distanceFromProbeToSurface * directionFromProbe;
-	float distAlongRay = dot(probeSpaceHitPoint - ray.origin, ray.direction);
-	
-	if(distAlongRay < 1000 && distAlongRay > 0)
-	{
-		hitProbeIndex = convertWorldIndex(MAP, selected_probe_idx);
-		hitTexCoord = toOctahedral(getProbePos(MAP, hitProbeIndex) + ray.direction * distAlongRay);
-		return true;
-	}
-	
-	//hitProbeIndex = convertWorldIndex(MAP, 0);
-	//hitTexCoord = toOctahedral(getProbePos(MAP, hitProbeIndex) + ray.direction * tMax);
-	//return true;
-	
 	return false;
 }
-
-float xi[3] = {
-	0.25,
-	0.5,
-	0.75,
-};
 
 vec3 computeRay(probesMap MAP, vec3 pos, vec3 wo, vec3 n)
 {
@@ -449,50 +436,11 @@ vec3 computeRay(probesMap MAP, vec3 pos, vec3 wo, vec3 n)
 	//local_pos.y = MAP.probeGridLength - 1 - local_pos.y;
 	MAP.startPos = WORLD_INDEX(local_pos.x + local_pos.y * MAP.probeGridLength + local_pos.z * MAP.probeGridLength * MAP.probeGridLength);
 	
-	vec2 hitTexCoord;
+	vec2 hitTexCoord = vec2(0,0);
     WORLD_INDEX index;
 	float hitDistance = 1000.0;
 	
-	
-	//vec3 color = vec3(0.0);
-	//int total = 0;
-	//for(int i = 0; i < 3; ++i)
-	//{
-	//	for(int j = 0; j < 3; ++j)
-	//	{
-	//		float alpha = 0;
-	//		float costheta = cos(atan(alpha * sqrt(xi[i]) / (sqrt(1 - xi[i]))));
-	//		
-	//		float s = sqrt(1 - costheta * costheta);
-	//		vec3 K = vec3(s * cos(2 * PI * xi[j]), s * sin(2 * PI * xi[j]), costheta);
-	//
-	//		vec3 B = normalize(vec3(-n.y, n.x, 0));
-	//		vec3 C = cross(n, B);
-	//		
-	//		vec3 m;
-	//		if (abs(n.z - 1) < 0.001) m = K;
-	//		else if (abs(n.z + 1) < 0.001) m = vec3(K.x, -K.y, -K.z);
-	//		else m = K.x * B + K.y * C + K.z * n;
-	//
-	//		wi = 2 * abs(dot(wo, m)) * m - wo;
-	//		
-	//		if (lightFieldTrace(MAP, worldSpaceRay, hitTexCoord, index, hitDistance)) 
-	//		{
-	//			color += textureLod(radianceProbe, vec3(hitTexCoord, index), 0).rgb;
-	//			++total;
-	//		}
-	//	}
-	//}
-	//return color / total;
-
-    
-	
-	
-	
-	
-	
-	
-	if (lightFieldTrace(MAP, worldSpaceRay, hitTexCoord, index, hitDistance)) 
+	if (lightFieldTrace(MAP, worldSpaceRay, n, hitTexCoord, index, hitDistance)) 
 	{
         return textureLod(radianceProbe, vec3(hitTexCoord, index), 0).rgb;
 	}

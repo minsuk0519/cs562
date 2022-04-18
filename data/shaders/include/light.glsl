@@ -198,7 +198,7 @@ vec2 toOctahedral(vec3 v)
 
 vec3 fromOctahedral(vec2 uv) 
 {
-	vec3 position = vec3(2.0 * (uv - 0.5), 0);                
+	vec3 position = vec3(2.0 * (uv) - vec2(1.0), 0);                
 
     vec2 absolute = abs(position.xy);
     position.z = 1.0 - absolute.x - absolute.y;

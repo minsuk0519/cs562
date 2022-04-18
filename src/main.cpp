@@ -63,7 +63,7 @@ std::array<VertexBuffer, VERTEX_INDEX_MAX> vertexbuffers;
 std::array<Image*, IMAGE_INDEX_MAX> imagebuffers;
 
 //light probe
-constexpr unsigned int MAX_LIGHT_PROBE_UNIT = 6;
+constexpr unsigned int MAX_LIGHT_PROBE_UNIT = 12;
 constexpr unsigned int MAX_LIGHT_PROBE = MAX_LIGHT_PROBE_UNIT * MAX_LIGHT_PROBE_UNIT * MAX_LIGHT_PROBE_UNIT;
 unsigned int lightprobeSize_unit = 6;
 unsigned int lightprobeSize = lightprobeSize_unit * lightprobeSize_unit * lightprobeSize_unit;
@@ -1229,7 +1229,8 @@ void updatebuffer()
     objects[5]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.5f, -9.5f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.2f, 3.0f, 6.0f));
 
     objects[7]->prop->albedoColor = glm::vec3(1.0f, 0.5f, 0.2f);
-    objects[7]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(-3.75f, 0.1f, -9.45f)) * glm::rotate(glm::mat4(1.0f), -PI_HALF, glm::vec3(1.0f, 0.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.36f, 0.295f, 0.3f));
+    //objects[7]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(-3.75f, 0.1f, -9.45f)) * glm::rotate(glm::mat4(1.0f), -PI_HALF, glm::vec3(1.0f, 0.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.36f, 0.295f, 0.3f));
+    objects[7]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(-3.75f, 100.1f, -9.45f)) * glm::rotate(glm::mat4(1.0f), -PI_HALF, glm::vec3(1.0f, 0.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.36f, 0.295f, 0.3f));
     objects[8]->prop->albedoColor = glm::vec3(1.0f, 0.5f, 0.2f);
     //objects[8]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(3.75f, 0.1f, -9.45f)) * glm::rotate(glm::mat4(1.0f), -PI_HALF, glm::vec3(1.0f, 0.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.36f, 0.295f, 0.3f));
     objects[8]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(3.75f, 100.1f, -9.45f)) * glm::rotate(glm::mat4(1.0f), -PI_HALF, glm::vec3(1.0f, 0.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.36f, 0.295f, 0.3f));
@@ -2243,6 +2244,7 @@ int main(void)
                 ImGui::DragFloat("UnitDistance##GIPROBE", &lightprobeInfo.probeUnitDist, 0.01f);
                 ImGui::DragFloat("MinThickness##GIPROBE", &lightprobeInfo.minThickness, 0.001f);
                 ImGui::DragFloat("MaxThickness##GIPROBE", &lightprobeInfo.maxThickness, 0.001f);
+                ImGui::DragFloat("Debug##GIPROBE", &lightprobeInfo.debugValue, 0.01f);
 
                 if (ImGui::Button("RebakeLightingMap##GIPROBE"))
                 {

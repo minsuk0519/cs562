@@ -166,6 +166,8 @@ struct lightprobeinfo
 
 	float minThickness;
 	float maxThickness;
+
+	float debugValue;
 };
 
 enum UNIFORM_INDEX
