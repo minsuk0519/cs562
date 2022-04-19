@@ -326,6 +326,11 @@ void memory::transitionImage(device* devicePtr, VkQueue graphicsqueue, VkImage i
 
     VkCommandBuffer commandBuffer;
 
+    if (VkResult result = vkQueueWaitIdle(graphicsqueue); result != VK_SUCCESS)
+    {
+        std::cout << "cannot wait queue : " << result << std::endl;
+    }
+
     devicePtr->create_single_commandbuffer_begin(commandBuffer);
 
     vkCmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);

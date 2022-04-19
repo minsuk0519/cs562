@@ -67,8 +67,8 @@ constexpr unsigned int MAX_LIGHT_PROBE_UNIT = 12;
 constexpr unsigned int MAX_LIGHT_PROBE = MAX_LIGHT_PROBE_UNIT * MAX_LIGHT_PROBE_UNIT * MAX_LIGHT_PROBE_UNIT;
 unsigned int lightprobeSize_unit = 6;
 unsigned int lightprobeSize = lightprobeSize_unit * lightprobeSize_unit * lightprobeSize_unit;
-unsigned int lightprobeTexSize = 256;
-unsigned int lightprobeCubemapTexSize = 256;
+unsigned int lightprobeTexSize = 512;
+unsigned int lightprobeCubemapTexSize = 512;
 unsigned int lightprobeIrradianceCubemapTexSize_Width = 128;
 std::array<lightprobe_proj, MAX_LIGHT_PROBE> lightprobesProj;
 float lightprobeDistant = 3.0f;
@@ -1453,6 +1453,8 @@ void updatebuffer()
 
 void setupbuffer()
 {
+    std::cout << "initializing buffers..." << std::endl;
+
     sun.direction = glm::vec3(-3.0f, -2.0f, 0.0);
     sun.color = glm::vec3(8.0f, 8.0f, 10.0f);
 
@@ -1506,6 +1508,8 @@ void setupbuffer()
     memPtr->generate_filteredtex(devicePtr, vulkanGraphicsQueue, vulkanComputeQueue, 400, 200, imagebuffers[IMAGE_INDEX_SKYDOME], imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE], vulkanSamplers[SAMPLE_INDEX_NORMAL]);
     memPtr->create_sampler(devicePtr, vulkanSamplers[SAMPLE_INDEX_SKYDOME], miplevel);
 
+    std::cout << "creating lightprobe textures..." << std::endl;
+
     uint32_t size = lightprobeSize;
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_B10G11R11_UFLOAT_PACK32, lightprobeIrradianceCubemapTexSize_Width, lightprobeIrradianceCubemapTexSize_Width / 2, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_IRRADIANCE]);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16_SFLOAT, lightprobeIrradianceCubemapTexSize_Width, lightprobeIrradianceCubemapTexSize_Width / 2, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_FILTERDISTANCE]);
@@ -1515,11 +1519,15 @@ void setupbuffer()
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16_SFLOAT, lightprobeTexSize / 16, lightprobeTexSize / 16, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST_LOW], VK_IMAGE_USAGE_TRANSFER_DST_BIT);
     memPtr->transitionImage(devicePtr, vulkanGraphicsQueue, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST_LOW]->image, 1, size, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
+    std::cout << "created lightprobe cubemap textures..." << std::endl;
+
     size *= 6;
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, lightprobeCubemapTexSize, lightprobeCubemapTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE]);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16B16A16_SFLOAT, lightprobeCubemapTexSize, lightprobeCubemapTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM]);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16_SFLOAT, lightprobeCubemapTexSize, lightprobeCubemapTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST]);
     memPtr->create_depth_image(devicePtr, vulkanGraphicsQueue, vulkanDepthFormat, lightprobeCubemapTexSize, lightprobeCubemapTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DEPTH]);
+
+    std::cout << "created lightprobe textures!" << std::endl;
 
     {
         std::vector<float> vertices = {
@@ -1689,11 +1697,15 @@ void setupbuffer()
     }
 
 
+    std::cout << "done initializing buffers!" << std::endl;
+
     updatebuffer();
 }
 
 void bakelightprobe()
 {
+    std::cout << "Baking light probe..." << std::endl;
+
     //if (imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE] == nullptr)
     //{
     //    uint32_t cubemapsize = lightprobeSize * 6;
@@ -1974,7 +1986,7 @@ void bakelightprobe()
         submitInfo.pCommandBuffers = submitcommandbuffers.data();
         if (vkQueueSubmit(vulkanGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
         {
-            std::cout << "failed to submit queue" << std::endl;
+            std::cout << "failed to submit queue on generating irradiance" << std::endl;
         }
 
         vkQueueWaitIdle(vulkanGraphicsQueue);
@@ -2003,6 +2015,8 @@ void bakelightprobe()
     //imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE] = nullptr;
 
     memPtr->copyimage(devicePtr, vulkanGraphicsQueue, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST_LOW], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    std::cout << "Finished baking light probe!" << std::endl;
 }
 
 void freebuffer()

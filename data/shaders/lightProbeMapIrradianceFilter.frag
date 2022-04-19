@@ -18,8 +18,13 @@ layout(push_constant) uniform PushConsts {
 void main()
 {
 	vec2 outTexcoord = gl_FragCoord.xy / vec2(float(window_width), float(window_height));
-
-	vec3 dir = EquirectangularToSpherical(outTexcoord);
+	
+	vec3 dir;
+	dir.x = sin(2 * PI * (0.5 - outTexcoord.x)) * sin(PI * outTexcoord.y);
+	dir.y = cos(PI * outTexcoord.y);
+	dir.z = cos(2 * PI * (0.5 - outTexcoord.x)) * sin(PI * outTexcoord.y);
+		
+	dir = normalize(dir);
 		
 	vec3 cubemapCoord = getCubemapCoord(dir);
 	

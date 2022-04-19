@@ -93,6 +93,6 @@ void main()
 	result += E[7] * 0.5 * sqrt(15 / PI) * x * z;
 	result += E[8] * 0.25 * sqrt(15 / PI) * (x * x - y * y);
 	
-	imageStore(outTex, ivec3(gl_GlobalInvocationID.xyz), imageLoad(readTex, ivec3(gl_GlobalInvocationID.xyz)));
-	//imageStore(outTex, ivec3(gl_GlobalInvocationID.xyz), vec4(result, 1.0));
+	//imageStore(outTex, ivec3(gl_GlobalInvocationID.xyz), imageLoad(readTex, ivec3(gl_GlobalInvocationID.xyz)));
+	imageStore(outTex, ivec3(gl_GlobalInvocationID.xyz), vec4(result, 1.0));
 }

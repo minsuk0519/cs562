@@ -229,10 +229,10 @@ void main()
 	MAP.max_thickness = probeInfo.max_thickness;
 	MAP.debugValue = probeInfo.debugValue;
 	
-	if(setting.GIGlossyenable == 1) resultColor = computeGlossyRay(MAP, position, viewDir, normal);
-	if(setting.GIDiffuseenable == 1) resultColor += albedo * ao * computeIrradiance(MAP, position, normal);
+	if(setting.GIGlossyenable == 1) resultColor += computeGlossyRay(MAP, position, viewDir, normal);
+	if(setting.GIDiffuseenable == 1) resultColor += albedo * computeIrradiance(MAP, position, normal);
 	
-	//resultColor = tone_mapping(resultColor, setting);
+	resultColor = tone_mapping(resultColor, setting);
     
 	outColor = vec4(resultColor, 1.0);
 }

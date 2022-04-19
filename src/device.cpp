@@ -218,9 +218,9 @@ bool device::end_commandbuffer_submit(VkQueue graphicsqueue, VkCommandBuffer com
         return false;
     }
 
-    if (vkQueueWaitIdle(graphicsqueue) != VK_SUCCESS)
+    if (VkResult result = vkQueueWaitIdle(graphicsqueue); result != VK_SUCCESS)
     {
-        std::cout << "cannot wait queue" << std::endl;
+        std::cout << "cannot wait queue : " << result << std::endl;
         return false;
     }
 
