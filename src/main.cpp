@@ -68,7 +68,8 @@ constexpr unsigned int MAX_LIGHT_PROBE = MAX_LIGHT_PROBE_UNIT * MAX_LIGHT_PROBE_
 unsigned int lightprobeSize_unit = 6;
 unsigned int lightprobeSize = lightprobeSize_unit * lightprobeSize_unit * lightprobeSize_unit;
 unsigned int lightprobeTexSize = 256;
-unsigned int lightprobeCubemapTexSize = 512;
+unsigned int lightprobeCubemapTexSize = 256;
+unsigned int lightprobeIrradianceCubemapTexSize_Width = 128;
 std::array<lightprobe_proj, MAX_LIGHT_PROBE> lightprobesProj;
 float lightprobeDistant = 3.0f;
 //float lightprobeDistant = 8.00f;
@@ -538,6 +539,16 @@ void createRenderpass()
     renderpass::create_framebuffer(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_LIGHTPROBE_FILTER], vulkanFramebuffers[render::FRAMEBUFFER_LIGHTPROBE_FILTER], {
         imagebuffers[IMAGE_INDEX_LIGHTPROBE_RADIANCE], imagebuffers[IMAGE_INDEX_LIGHTPROBE_NORM], imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST]
     });
+
+    //lightprobe pre-filter irradiancemap
+    renderpass::create_renderpass(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_LIGHTPROBE_FILTER_IRRADIANCE], {
+        {imagebuffers[IMAGE_INDEX_LIGHTPROBE_IRRADIANCE]->format, 0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, renderpass::ATTACHMENT_NONE},
+        {imagebuffers[IMAGE_INDEX_LIGHTPROBE_FILTERDISTANCE]->format, 1, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, renderpass::ATTACHMENT_NONE},
+    });
+
+    renderpass::create_framebuffer(devicePtr->vulkanDevice, vulkanRenderpasses[render::RENDERPASS_LIGHTPROBE_FILTER_IRRADIANCE], vulkanFramebuffers[render::FRAMEBUFFER_LIGHTPROBE_FILTER_IRRADIANCE], {
+        imagebuffers[IMAGE_INDEX_LIGHTPROBE_IRRADIANCE], imagebuffers[IMAGE_INDEX_LIGHTPROBE_FILTERDISTANCE]
+     });
 }
 
 void updatelightingdescriptorset(bool blur, bool aoblur)
@@ -570,7 +581,9 @@ void updatelightingdescriptorset(bool blur, bool aoblur)
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 15, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_LIGHTPROBE_NORM]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 16, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 17, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST_LOW]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 18, {uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_INFO].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_INFO].range}, {}},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 18, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_LIGHTPROBE_IRRADIANCE]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 19, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_LIGHTPROBE_FILTERDISTANCE]->imageView, VK_IMAGE_LAYOUT_GENERAL}},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 20, {uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_INFO].buf, 0, uniformbuffers[UNIFORM_INDEX_LIGHTPROBE_INFO].range}, {}},
     });
 }
 
@@ -614,7 +627,9 @@ void createdescriptorset()
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 15},
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 16},
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 17},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 18},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 18},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 19},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 20},
     });
 
     updatelightingdescriptorset(true, true);
@@ -740,13 +755,24 @@ void createdescriptorset()
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0},
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1},
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 2},
-        });
+    });
 
     descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_LIGHTPROBE_MAP_FILTER], {
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-        });
+    });
+
+    //light probe map pre-filter irradiance
+    descriptor::create_descriptorset_layout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_LIGHTPROBE_MAP_FILTER_IRRADIANCE], vulkanDescriptorSets[render::DESCRIPTOR_LIGHTPROBE_MAP_FILTER_IRRADIANCE], vulkanDescriptorPool, {
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1},
+    });
+
+    descriptor::write_descriptorset(devicePtr->vulkanDevice, vulkanDescriptorSets[render::DESCRIPTOR_LIGHTPROBE_MAP_FILTER_IRRADIANCE], {
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, {}, {vulkanSamplers[SAMPLE_INDEX_NORMAL], imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST]->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+    });
 }
 
 void createPipeline()
@@ -1135,7 +1161,48 @@ void createPipeline()
             {"data/shaders/ambientocculusion.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
             {"data/shaders/lightProbeMapFilter.geom.spv", VK_SHADER_STAGE_GEOMETRY_BIT},
             {"data/shaders/lightProbeMapFilter.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
+        });
+    }
+
+    //lightprobe map pre-filter pass
+    {
+        pipeline::create_pipelinelayout(devicePtr->vulkanDevice, vulkanDescriptorSetLayouts[render::DESCRIPTOR_LIGHTPROBE_MAP_FILTER_IRRADIANCE], vulkanPipelineLayouts[render::PIPELINE_LIGHTPROBE_MAP_FILTER_IRRADIANCE], {
+            {VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_GEOMETRY_BIT, 0, sizeof(int) * 3},
             });
+
+        VkGraphicsPipelineCreateInfo pipelineCreateInfo{};
+        pipelineCreateInfo.layout = vulkanPipelineLayouts[render::PIPELINE_LIGHTPROBE_MAP_FILTER_IRRADIANCE];
+        pipelineCreateInfo.renderPass = vulkanRenderpasses[render::RENDERPASS_LIGHTPROBE_FILTER_IRRADIANCE];
+
+        std::vector<VkVertexInputAttributeDescription> vertexinputs = {
+            { 0, 0, VK_FORMAT_R32G32_SFLOAT, 0 },
+        };
+
+        VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo = pipeline::getInputAssemblyCreateInfo();
+        VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo = pipeline::getRasterizationCreateInfo(VK_CULL_MODE_BACK_BIT);
+        VkPipelineColorBlendAttachmentState pipelinecolorblendattachment = pipeline::getColorBlendAttachment(VK_FALSE);
+        std::vector<VkPipelineColorBlendAttachmentState> pipelinecolorblendattachments = { pipelinecolorblendattachment, pipelinecolorblendattachment };
+        VkPipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo = pipeline::getColorBlendCreateInfo(static_cast<uint32_t>(pipelinecolorblendattachments.size()), pipelinecolorblendattachments.data());
+        VkPipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo = pipeline::getMultisampleCreateInfo(VK_SAMPLE_COUNT_1_BIT);
+        VkViewport viewport = pipeline::getViewport(lightprobeIrradianceCubemapTexSize_Width, lightprobeIrradianceCubemapTexSize_Width / 2);
+        VkRect2D scissor = pipeline::getScissor(lightprobeIrradianceCubemapTexSize_Width, lightprobeIrradianceCubemapTexSize_Width / 2);
+        VkPipelineViewportStateCreateInfo pipelineViewportStateCreateInfo = pipeline::getViewportCreateInfo(&viewport, &scissor);
+        VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo = pipeline::getDepthStencilCreateInfo(VK_FALSE, VK_COMPARE_OP_LESS_OR_EQUAL);
+        VkVertexInputBindingDescription pipelinevertexinputbinding = pipeline::getVertexinputbindingDescription(sizeof(glm::vec2));
+        VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo = pipeline::getVertexinputAttributeDescription(&pipelinevertexinputbinding, vertexinputs);
+
+        pipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
+        pipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
+        pipelineCreateInfo.pColorBlendState = &pipelineColorBlendStateCreateInfo;
+        pipelineCreateInfo.pMultisampleState = &pipelineMultisampleStateCreateInfo;
+        pipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
+        pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
+        pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
+        pipeline::create_pipeline(devicePtr->vulkanDevice, pipelineCreateInfo, vulkanPipelines[render::PIPELINE_LIGHTPROBE_MAP_FILTER_IRRADIANCE], vulkanPipelineCache, {
+            {"data/shaders/ambientocculusion.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+            {"data/shaders/lightProbeMapIrradianceFilter.geom.spv", VK_SHADER_STAGE_GEOMETRY_BIT},
+            {"data/shaders/lightProbeMapIrradianceFilter.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT},
+        });
     }
 }
 
@@ -1436,10 +1503,12 @@ void setupbuffer()
     //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Footprint_Court/Footprint_Court_2k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
     //memPtr->load_texture_image(devicePtr, vulkanGraphicsQueue, "skys/Tropical_Beach/Tropical_Beach_3k.hdr", imagebuffers[IMAGE_INDEX_SKYDOME], miplevel, VK_IMAGE_LAYOUT_GENERAL);
     
-    memPtr->generate_filteredtex(devicePtr, vulkanGraphicsQueue, vulkanComputeQueue, imagebuffers[IMAGE_INDEX_SKYDOME], imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE], vulkanSamplers[SAMPLE_INDEX_NORMAL]);
+    memPtr->generate_filteredtex(devicePtr, vulkanGraphicsQueue, vulkanComputeQueue, 400, 200, imagebuffers[IMAGE_INDEX_SKYDOME], imagebuffers[IMAGE_INDEX_SKYDOME_IRRADIANCE], vulkanSamplers[SAMPLE_INDEX_NORMAL]);
     memPtr->create_sampler(devicePtr, vulkanSamplers[SAMPLE_INDEX_SKYDOME], miplevel);
 
     uint32_t size = lightprobeSize;
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_B10G11R11_UFLOAT_PACK32, lightprobeIrradianceCubemapTexSize_Width, lightprobeIrradianceCubemapTexSize_Width / 2, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_IRRADIANCE]);
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16_SFLOAT, lightprobeIrradianceCubemapTexSize_Width, lightprobeIrradianceCubemapTexSize_Width / 2, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_FILTERDISTANCE]);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_B10G11R11_UFLOAT_PACK32, lightprobeTexSize, lightprobeTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_RADIANCE]);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R8G8_UNORM, lightprobeTexSize, lightprobeTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_NORM]);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16_SFLOAT, lightprobeTexSize, lightprobeTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST], VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
@@ -1591,8 +1660,8 @@ void setupbuffer()
 
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(Projection), 1, uniformbuffers[UNIFORM_INDEX_PROJECTION]);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(ObjectProperties)*/128, 128, uniformbuffers[UNIFORM_INDEX_OBJECT]);
-    memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(ObjectProperties)*/128, 256, uniformbuffers[UNIFORM_INDEX_OBJECT_DEBUG]);
-    memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(lightSetting)*/24, 1, uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING]);
+    memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(ObjectProperties)*/128, 1024, uniformbuffers[UNIFORM_INDEX_OBJECT_DEBUG]);
+    memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(lightSetting)*/36, 1, uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING]);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(camera), 1, uniformbuffers[UNIFORM_INDEX_CAMERA]);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(light)*/64, 64, uniformbuffers[UNIFORM_INDEX_LIGHT]);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(shadow), 1, uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING]);
@@ -1654,39 +1723,12 @@ void bakelightprobe()
 
                     lightprobeProjection.pos = pos;
 
-                    //glm::mat4 R = glm::translate(glm::transpose(glm::mat4(glm::vec4(0.0, 0.0, 1.0, 0.0f), glm::vec4(0.0, -1.0, 0.0, 0.0f), glm::vec4(-1.0, 0.0, 0.0, 0.0f), glm::vec4(0, 0, 0, 1))), -glm::vec3(pos));
-                    //lightprobeProjection.projs[0] = proj * R;
-                    //R = glm::translate(glm::transpose(glm::mat4(glm::vec4(0.0, 0.0, -1.0, 0.0f), glm::vec4(0.0, -1.0, 0.0, 0.0f), glm::vec4(1.0, 0.0, 0.0, 0.0f), glm::vec4(0, 0, 0, 1))), -glm::vec3(pos));
-                    //lightprobeProjection.projs[1] = proj * R;
-                    //R = glm::translate(glm::transpose(glm::mat4(glm::vec4(-1.0, 0.0, 0.0, 0.0f), glm::vec4(0.0, 0.0, -1.0, 0.0f), glm::vec4(0.0, -1.0, 0.0, 0.0f), glm::vec4(0, 0, 0, 1))), -glm::vec3(pos));
-                    //lightprobeProjection.projs[2] = proj * R;
-                    //R = glm::translate(glm::transpose(glm::mat4(glm::vec4(1.0, 0.0, 0.0, 0.0f), glm::vec4(0.0, 0.0, -1.0, 0.0f), glm::vec4(0.0, 1.0, 0.0, 0.0f), glm::vec4(0, 0, 0, 1))), -glm::vec3(pos));
-                    //lightprobeProjection.projs[3] = proj * R;
-                    //R = glm::translate(glm::transpose(glm::mat4(glm::vec4(1.0, 0.0, 0.0, 0.0f), glm::vec4(0.0, -1.0, 0.0, 0.0f), glm::vec4(0.0, 0.0, 1.0, 0.0f), glm::vec4(0, 0, 0, 1))), -glm::vec3(pos));
-                    //lightprobeProjection.projs[4] = proj * R;
-                    //R = glm::translate(glm::transpose(glm::mat4(glm::vec4(-1.0, 0.0, 0.0, 0.0f), glm::vec4(0.0, -1.0, 0.0, 0.0f), glm::vec4(0.0, 0.0, -1.0, 0.0f), glm::vec4(0, 0, 0, 1))), -glm::vec3(pos));
-                    //lightprobeProjection.projs[5] = proj * R;
-
-                    lightprobeProjection.projs[0] = glm::mat4(0.0f);
-                    lightprobeProjection.projs[1] = glm::mat4(0.0f);
-                    lightprobeProjection.projs[2] = glm::mat4(0.0f);
-                    lightprobeProjection.projs[3] = glm::mat4(0.0f);
-                    lightprobeProjection.projs[4] = glm::mat4(0.0f);
-                    lightprobeProjection.projs[5] = glm::mat4(0.0f);
-                    //confirmed
                     lightprobeProjection.projs[0] = proj * glm::lookAtLH(pos, pos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0));
                     lightprobeProjection.projs[1] = proj * glm::lookAtLH(pos, pos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0));
                     lightprobeProjection.projs[2] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
                     lightprobeProjection.projs[3] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, -1.0));
                     lightprobeProjection.projs[4] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0));
                     lightprobeProjection.projs[5] = proj * glm::lookAtLH(pos, pos + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, -1.0, 0.0));
-                    
-
-                    //lightprobeProjection.projs[0] = proj * glm::lookAtLH(pos, pos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0));
-
-                    
-                    
-
 
                     lightprobeProjection.id = i * lightprobeSizeSquared + j * lightprobeSize_unit + k;
 
@@ -1768,11 +1810,12 @@ void bakelightprobe()
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         VkPipelineStageFlags pipelinestageFlag = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         std::array<VkPipelineStageFlags, 1> pipelinestageFlags = { pipelinestageFlag };
+        std::array<VkSemaphore, 1> waitsemaphores = { vulkanSemaphores[render::SEMAPHORE_LIGHTPROBE_MAP] };
         submitInfo.pWaitDstStageMask = &pipelinestageFlag;
         submitInfo.waitSemaphoreCount = 0;
         submitInfo.pWaitSemaphores = 0;
-        submitInfo.signalSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores = &vulkanSemaphores[render::SEMAPHORE_LIGHTPROBE_MAP];
+        submitInfo.signalSemaphoreCount = static_cast<uint32_t>(waitsemaphores.size());
+        submitInfo.pSignalSemaphores = waitsemaphores.data();;
         submitInfo.commandBufferCount = static_cast<uint32_t>(submitcommandbuffers.size());
         submitInfo.pCommandBuffers = submitcommandbuffers.data();
         if (vkQueueSubmit(vulkanGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
@@ -1844,9 +1887,87 @@ void bakelightprobe()
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         VkPipelineStageFlags pipelinestageFlag = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         std::array<VkPipelineStageFlags, 1> pipelinestageFlags = { pipelinestageFlag };
+        std::array<VkSemaphore, 1> waitsemaphores = { vulkanSemaphores[render::SEMAPHORE_LIGHTPROBE_MAP_FILTER] };
         submitInfo.pWaitDstStageMask = &pipelinestageFlag;
         submitInfo.waitSemaphoreCount = 1;
         submitInfo.pWaitSemaphores = &vulkanSemaphores[render::SEMAPHORE_LIGHTPROBE_MAP];
+        submitInfo.signalSemaphoreCount = static_cast<uint32_t>(waitsemaphores.size());
+        submitInfo.pSignalSemaphores = waitsemaphores.data();
+        submitInfo.commandBufferCount = static_cast<uint32_t>(submitcommandbuffers.size());
+        submitInfo.pCommandBuffers = submitcommandbuffers.data();
+        if (vkQueueSubmit(vulkanGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
+        {
+            std::cout << "failed to submit queue" << std::endl;
+        }
+
+        vkQueueWaitIdle(vulkanGraphicsQueue);
+    }
+
+    //prefilter light probes irradiance
+    {
+        VkCommandBufferBeginInfo commandBufferBeginInfo{};
+        commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+        std::array<VkClearValue, 2> lightprobeclearValues;
+        lightprobeclearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+        lightprobeclearValues[1].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+
+        VkRenderPassBeginInfo renderPassBeginInfo{};
+        renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        renderPassBeginInfo.renderPass = vulkanRenderpasses[render::RENDERPASS_LIGHTPROBE_FILTER_IRRADIANCE];
+        renderPassBeginInfo.renderArea.offset.x = 0;
+        renderPassBeginInfo.renderArea.offset.y = 0;
+        renderPassBeginInfo.renderArea.extent.width = lightprobeIrradianceCubemapTexSize_Width;
+        renderPassBeginInfo.renderArea.extent.height = lightprobeIrradianceCubemapTexSize_Width / 2;
+        renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(lightprobeclearValues.size());
+        renderPassBeginInfo.pClearValues = lightprobeclearValues.data();
+        renderPassBeginInfo.framebuffer = vulkanFramebuffers[render::FRAMEBUFFER_LIGHTPROBE_FILTER_IRRADIANCE];
+
+        if (vkBeginCommandBuffer(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER_IRRADIANCE], &commandBufferBeginInfo) != VK_SUCCESS)
+        {
+            std::cout << "failed to begin command buffer!" << std::endl;
+        }
+
+        //vkCmdResetQueryPool(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER_IRRADIANCE], vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_START, 2);
+        //vkCmdWriteTimestamp(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER_IRRADIANCE], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_START);
+
+        vkCmdBeginRenderPass(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER_IRRADIANCE], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdBindPipeline(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER_IRRADIANCE], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelines[render::PIPELINE_LIGHTPROBE_MAP_FILTER_IRRADIANCE]);
+
+        int pushconstant[3];
+        pushconstant[1] = lightprobeIrradianceCubemapTexSize_Width;
+        pushconstant[2] = lightprobeIrradianceCubemapTexSize_Width / 2;
+        unsigned int size = lightprobeSize;
+        for (unsigned int i = 0; i < size; ++i)
+        {
+            vkCmdBindDescriptorSets(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER_IRRADIANCE], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelineLayouts[render::PIPELINE_LIGHTPROBE_MAP_FILTER_IRRADIANCE], 0, 1,
+                &vulkanDescriptorSets[render::DESCRIPTOR_LIGHTPROBE_MAP_FILTER_IRRADIANCE], 0, nullptr);
+
+            pushconstant[0] = i;
+
+            vkCmdPushConstants(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER_IRRADIANCE], vulkanPipelineLayouts[render::PIPELINE_LIGHTPROBE_MAP_FILTER_IRRADIANCE], VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(int) * 3, pushconstant);
+
+            render::draw(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER_IRRADIANCE], vertexbuffers[VERTEX_INDEX_QUAD_POSONLY]);
+        }
+
+        vkCmdEndRenderPass(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER_IRRADIANCE]);
+
+        //vkCmdWriteTimestamp(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER_IRRADIANCE], VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vulkanTimestampQuery, TIMESTAMP::TIMESTAMP_GBUFFER_END);
+
+        if (vkEndCommandBuffer(vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER_IRRADIANCE]) != VK_SUCCESS)
+        {
+            std::cout << "failed to end commnad buffer!" << std::endl;
+        }
+
+        std::array<VkCommandBuffer, 1> submitcommandbuffers = { vulkanCommandBuffers[render::COMMANDBUFFER_LIGHTPROBE_FILTER_IRRADIANCE] };
+
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        VkPipelineStageFlags pipelinestageFlag = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        std::array<VkPipelineStageFlags, 1> pipelinestageFlags = { pipelinestageFlag };
+        submitInfo.pWaitDstStageMask = &pipelinestageFlag;
+        submitInfo.waitSemaphoreCount = 1;
+        submitInfo.pWaitSemaphores = &vulkanSemaphores[render::SEMAPHORE_LIGHTPROBE_MAP_FILTER];
         submitInfo.signalSemaphoreCount = 0;
         submitInfo.pSignalSemaphores = 0;
         submitInfo.commandBufferCount = static_cast<uint32_t>(submitcommandbuffers.size());
@@ -1858,6 +1979,17 @@ void bakelightprobe()
 
         vkQueueWaitIdle(vulkanGraphicsQueue);
     }
+
+    memPtr->transitionImage(devicePtr, vulkanGraphicsQueue, imagebuffers[IMAGE_INDEX_LIGHTPROBE_IRRADIANCE]->image, 1, 
+        imagebuffers[IMAGE_INDEX_LIGHTPROBE_IRRADIANCE]->layer, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+    memPtr->filteredtexArray(devicePtr, vulkanGraphicsQueue, vulkanComputeQueue, lightprobeIrradianceCubemapTexSize_Width, lightprobeIrradianceCubemapTexSize_Width / 2, 
+        imagebuffers[IMAGE_INDEX_LIGHTPROBE_IRRADIANCE], imagebuffers[IMAGE_INDEX_LIGHTPROBE_IRRADIANCE], VK_IMAGE_LAYOUT_GENERAL, vulkanSamplers[SAMPLE_INDEX_NORMAL], "envmappingArray");
+
+    memPtr->transitionImage(devicePtr, vulkanGraphicsQueue, imagebuffers[IMAGE_INDEX_LIGHTPROBE_FILTERDISTANCE]->image, 1,
+        imagebuffers[IMAGE_INDEX_LIGHTPROBE_FILTERDISTANCE]->layer, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+    memPtr->filteredtexArray(devicePtr, vulkanGraphicsQueue, vulkanComputeQueue, lightprobeIrradianceCubemapTexSize_Width, lightprobeIrradianceCubemapTexSize_Width / 2, 
+        imagebuffers[IMAGE_INDEX_LIGHTPROBE_FILTERDISTANCE], imagebuffers[IMAGE_INDEX_LIGHTPROBE_FILTERDISTANCE], VK_IMAGE_LAYOUT_GENERAL, vulkanSamplers[SAMPLE_INDEX_NORMAL], "envmappingArray");
+
 
     //memPtr->free_image(devicePtr->vulkanDevice, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST]);
     //memPtr->free_image(devicePtr->vulkanDevice, imagebuffers[IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM]);
@@ -2205,6 +2337,9 @@ int main(void)
                     ImGui::EndMenu();
                 }
 
+                bool ibl = lightsetting.IBLenable;
+                ImGui::Checkbox("IBLEnable##IBL", &ibl);
+                lightsetting.IBLenable = ibl;
                 ImGui::Checkbox("HighDynamicRange", &lightsetting.highdynamicrange);
                 ImGui::DragFloat("Gamma", &lightsetting.gamma, 0.01f, 0.0f, 10.0f);
                 ImGui::DragFloat("Exposure", &lightsetting.exposure, 1.0f, 0.1f, 10000.0f);
@@ -2245,6 +2380,12 @@ int main(void)
                 ImGui::DragFloat("MinThickness##GIPROBE", &lightprobeInfo.minThickness, 0.001f);
                 ImGui::DragFloat("MaxThickness##GIPROBE", &lightprobeInfo.maxThickness, 0.001f);
                 ImGui::DragFloat("Debug##GIPROBE", &lightprobeInfo.debugValue, 0.01f);
+                bool giglossy = lightsetting.GIglossyenable;
+                bool gidiffuse = lightsetting.GIdiffuseenable;
+                ImGui::Checkbox("GlossyEnable##GIPROBE", &giglossy);
+                ImGui::Checkbox("DiffuseEnable##GIPROBE", &gidiffuse);
+                lightsetting.GIglossyenable = giglossy;
+                lightsetting.GIdiffuseenable = gidiffuse;
 
                 if (ImGui::Button("RebakeLightingMap##GIPROBE"))
                 {

@@ -59,7 +59,9 @@ public:
     bool load_texture_image(device* devicePtr, VkQueue graphicsqueue, std::string filepath, Image*& image, uint32_t& miplevel, VkImageLayout imagelayout);
     void generate_mipmap(device* devicePtr, VkQueue graphicsqueue, VkFormat imageFormat, VkImage& image, uint32_t width, uint32_t height, uint32_t mipmap, VkImageLayout imagelayout);
     bool copyimage(device* devicePtr, VkQueue graphicsqueue, Image* srcImage, VkImageLayout srclayout, Image*& dstImage, VkImageLayout dstlayout);
-    void generate_filteredtex(device* devicePtr, VkQueue graphicsqueue, VkQueue computequeue, Image*& src, Image*& target, VkSampler sampler);
+    void generate_filteredtex(device* devicePtr, VkQueue graphicsqueue, VkQueue computequeue, uint32_t width, uint32_t height, Image*& src, Image*& target, VkSampler sampler);
+    void filteredtex(device* devicePtr, VkQueue graphicsqueue, VkQueue computequeue, uint32_t width, uint32_t height, Image*& src, Image*& target, VkImageLayout layout, VkSampler sampler);
+    void filteredtexArray(device* devicePtr, VkQueue graphicsqueue, VkQueue computequeue, uint32_t width, uint32_t height, Image*& src, Image*& target, VkImageLayout layout, VkSampler sampler, std::string computeshadername);
 
     void setimagebarriermask(VkImageMemoryBarrier& imageMemoryBarrier, VkImageLayout oldImageLayout, VkImageLayout newImageLayout);
 

@@ -178,7 +178,7 @@ TraceResult highresTraceRaytoSegment(probesMap MAP, Ray ray, vec2 startSegment, 
 
             float surfaceThickness = MAP.min_thickness + (MAP.max_thickness - MAP.min_thickness) * max(dot(ray.direction, directionFromProbe), 0.0) * (2 - abs(dot(ray.direction, normal))) * clamp(distAlongRay * 0.1, 0.05, 1.0);
 
-            if ((minDistFromProbeToRay < distanceFromProbeToSurface + surfaceThickness) && (dot(normal, ray.direction) < 0)) 
+            if ((minDistFromProbeToRay < distanceFromProbeToSurface + surfaceThickness) && (dot(normal, ray.direction) < 0.0)) 
 			{
                 tMax = distAlongRay;
                 hitTexCoord = texCoord;
@@ -276,7 +276,7 @@ bool lowresTraceRaytoSegment(probesMap MAP, Ray ray, inout vec2 startSegment, ve
     return false;
 }
 
-TraceResult traceRaytoSegment(probesMap MAP, Ray ray, float t0, float t1, WORLD_INDEX idx, inout float tMin, inout float tMax, inout vec2 hitTexCoord)
+TraceResult traceRaytoSegment(probesMap MAP, Ray ray, float t0, float t1, WORLD_INDEX idx, in float tMin, inout float tMax, inout vec2 hitTexCoord)
 {
 	//compute 2D line segment polyline
 	vec3 startPoint = ray.origin + ray.direction * (t0 + EPSILON);
@@ -317,12 +317,12 @@ TraceResult singleProbeTrace(probesMap MAP, Ray ray, WORLD_INDEX idx, inout floa
 	localRay.origin = ray.origin - getProbePos(MAP, idx);
 	localRay.direction = ray.direction;
 	
-	vec2 originOctahedral = toOctahedral(localRay.origin);
-	float origindepth = texelFetch(distanceProbe, ivec3(originOctahedral * MAP.textureSize, idx), 0).r;
-	if(origindepth < length(localRay.origin) - EPSILON)
-	{
-		return TRACE_RESULT_UNKNOWN;
-	}
+	//vec2 originOctahedral = toOctahedral(localRay.origin);
+	//float origindepth = texelFetch(distanceProbe, ivec3(originOctahedral * MAP.textureSize, idx), 0).r;
+	//if(origindepth < length(localRay.origin) - EPSILON)
+	//{
+	//	return TRACE_RESULT_UNKNOWN;
+	//}
 	
 
 	//get the intersection time with x, y, z plane
@@ -369,7 +369,7 @@ TraceResult singleProbeTrace(probesMap MAP, Ray ray, WORLD_INDEX idx, inout floa
 	return TRACE_RESULT_MISS;
 }
 
-bool lightFieldTrace(probesMap MAP, Ray ray, vec3 norm, out vec2 hitTexCoord, out WORLD_INDEX hitProbeIndex, inout float tMax)
+bool lightFieldTrace(probesMap MAP, Ray ray, vec3 norm, LOCAL_INDEX index, out vec2 hitTexCoord, out WORLD_INDEX hitProbeIndex, inout float tMax)
 {
 	TraceResult result = TRACE_RESULT_UNKNOWN;
 	
@@ -379,16 +379,21 @@ bool lightFieldTrace(probesMap MAP, Ray ray, vec3 norm, out vec2 hitTexCoord, ou
 	
 	hitProbeIndex = -1;
 	
+	//result = singleProbeTrace(MAP, ray, convertWorldIndex(MAP, index), tMin, tMax, hitTexCoord);
+	//
+	//if(result == TRACE_RESULT_HIT) return true;
+	//else return false;
+	
 	for(int i = 0; i < CUBIC_CAGE; ++i)
 	{
 		WORLD_INDEX world_selected_probe_idx = convertWorldIndex(MAP, selected_probe_idx);
 		
-		//vec3 diff = getProbePos(MAP, world_selected_probe_idx) - ray.origin;
-		//if(dot(diff, norm) < 0.0) 
-		//{
-		//	selected_probe_idx = findNextLocalIndex(selected_probe_idx);
-		//	continue;
-		//}
+		vec3 diff = getProbePos(MAP, world_selected_probe_idx) - ray.origin;
+		if(dot(diff, norm) < 0.0) 
+		{
+			selected_probe_idx = findNextLocalIndex(selected_probe_idx);
+			continue;
+		}
 		
 		result = singleProbeTrace(MAP, ray, world_selected_probe_idx, tMin, tMax, hitTexCoord);
 		
@@ -423,7 +428,7 @@ bool lightFieldTrace(probesMap MAP, Ray ray, vec3 norm, out vec2 hitTexCoord, ou
 	return false;
 }
 
-vec3 computeRay(probesMap MAP, vec3 pos, vec3 wo, vec3 n)
+vec3 computeGlossyRay(probesMap MAP, vec3 pos, vec3 wo, vec3 n)
 {
 	//lets assume perfect mirror for sampleBRDF right now
 	//vec3 wi = normalize(2 * dot(n, wo) * n - wo);//importanceSampleBRDFDirection(wo, n);
@@ -433,19 +438,92 @@ vec3 computeRay(probesMap MAP, vec3 pos, vec3 wo, vec3 n)
 	
 	vec3 local_pos = (worldSpaceRay.origin - MAP.centerofProbeMap) / (MAP.probeUnitDist);
 	local_pos = clamp(floor(local_pos), vec3(0,0,0), vec3(MAP.probeGridLength - 1));
-	//local_pos.y = MAP.probeGridLength - 1 - local_pos.y;
 	MAP.startPos = WORLD_INDEX(local_pos.x + local_pos.y * MAP.probeGridLength + local_pos.z * MAP.probeGridLength * MAP.probeGridLength);
 	
 	vec2 hitTexCoord = vec2(0,0);
     WORLD_INDEX index;
 	float hitDistance = 1000.0;
 	
-	if (lightFieldTrace(MAP, worldSpaceRay, n, hitTexCoord, index, hitDistance)) 
+	vec3 result = vec3(0,0,0);
+	int num = 0;
+	
+	//float currenthitDist = 100000.0;
+	//vec2 currenthitTexCoord = vec2(0,0);
+    //WORLD_INDEX currentindex;
+	//for(int i = 0; i < CUBIC_CAGE; ++i)
+	//{
+	//	if(lightFieldTrace(MAP, worldSpaceRay, n, i, hitTexCoord, index, hitDistance))
+	//	{
+	//		//if(hitDistance < currenthitDist)
+	//		{
+	//			currenthitTexCoord = hitTexCoord;
+	//			currentindex = index;
+	//			currenthitDist = hitDistance;
+	//			return textureLod(radianceProbe, vec3(currenthitTexCoord, currentindex), 0).rgb;
+	//		}
+	//	}
+	//	//hitDistance = 1000.0;
+	//	//hitTexCoord = vec2(0,0);
+	//}
+	//return textureLod(radianceProbe, vec3(currenthitTexCoord, currentindex), 0).rgb;
+	
+	if (lightFieldTrace(MAP, worldSpaceRay, n, 0, hitTexCoord, index, hitDistance)) 
 	{
+		//return vec3(textureLod(radianceProbe, vec3(hitTexCoord, index), 0).rg, hitDistance / 1000.0);
         return textureLod(radianceProbe, vec3(hitTexCoord, index), 0).rgb;
 	}
 	
 	return vec3(0,0,0);
+}
+
+vec3 computeIrradiance(probesMap MAP, vec3 pos, vec3 norm)
+{
+	vec3 local_pos = (pos - MAP.centerofProbeMap) / (MAP.probeUnitDist);
+	local_pos = clamp(floor(local_pos), vec3(0,0,0), vec3(MAP.probeGridLength - 1));
+
+	vec3 probePos =	MAP.probeUnitDist * vec3(local_pos) + MAP.centerofProbeMap;
+
+    vec3 sumIrradiance = vec3(0.0);
+    float sumWeight = 0.0;
+    vec3 alpha = clamp((pos - probePos) / MAP.probeUnitDist, vec3(0.0), vec3(1.0));
+
+    for (int i = 0; i < CUBIC_CAGE; ++i) 
+	{
+        ivec3 offset = ivec3(i, i >> 1, i >> 2) & ivec3(1);
+        ivec3 probeGridCoord = clamp(ivec3(local_pos) + offset, ivec3(0), ivec3(MAP.probeGridLength - 1));
+        WORLD_INDEX p = probeGridCoord.x + probeGridCoord.y * MAP.probeGridLength + probeGridCoord.z * MAP.probeGridLength * MAP.probeGridLength;
+
+        vec3 trilinear = mix(1 - alpha, alpha, offset);
+        float weight = trilinear.x * trilinear.y * trilinear.z;
+
+        vec3 probePosition = MAP.probeUnitDist * vec3(local_pos) + MAP.centerofProbeMap;
+        vec3 probeToPoint = pos - probePosition;
+        vec3 dir = normalize(-probeToPoint);
+
+        weight *= max(0.05, dot(dir, norm));
+
+        vec2 temp = texture(filterDistProbe, vec3(SphericalToEquirectangular(-dir), p)).rg;
+        float mean = temp.x;
+        float variance = abs(temp.y - mean * mean);
+
+        float distToProbe = length(probeToPoint);
+        float t_sub_mean = distToProbe - mean;
+        float chebychev = variance / (variance + t_sub_mean * t_sub_mean);
+
+        weight *= ((distToProbe <= mean) ? 1.0 : max(chebychev, 0.0));
+
+        weight = max(0.0002, weight);
+
+        sumWeight += weight;
+
+        vec3 irradianceDir = norm;
+
+        vec3 probeIrradiance = texture(irradianceProbe, vec3(SphericalToEquirectangular(normalize(irradianceDir)), p)).rgb;
+
+        sumIrradiance += weight * probeIrradiance;
+    }
+
+    return sumIrradiance / (PI * sumWeight);
 }
 
 #endif

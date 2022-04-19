@@ -11,6 +11,10 @@ struct lightsetting
 	float exposure;
 	int highdynamicrange;
 	int aoenable;
+	int IBLenable;
+	
+	int GIDiffuseenable;
+	int GIGlossyenable;
 };
 
 struct light

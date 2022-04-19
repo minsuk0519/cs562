@@ -40,6 +40,9 @@ struct lightSetting
 	float exposure = 1.0f;
 	bool highdynamicrange = true;
 	int aoenable = 1;
+	int IBLenable = 1;
+	int GIdiffuseenable = 1;
+	int GIglossyenable = 1;
 };
 
 struct camera
@@ -226,6 +229,8 @@ enum IMAGE_INDEX
 	IMAGE_INDEX_LIGHTPROBE_DIST_LOW,
 	IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST,
 	IMAGE_INDEX_LIGHTPROBE_DEPTH,
+	IMAGE_INDEX_LIGHTPROBE_IRRADIANCE,
+	IMAGE_INDEX_LIGHTPROBE_FILTERDISTANCE,
 	IMAGE_INDEX_MAX,
 };
 

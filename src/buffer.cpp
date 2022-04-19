@@ -596,10 +596,16 @@ bool memory::copyimage(device* devicePtr, VkQueue graphicsqueue, Image* srcImage
     return true;
 }
 
-void memory::generate_filteredtex(device* devicePtr, VkQueue graphicsqueue, VkQueue computequeue, Image*& src, Image*& target, VkSampler sampler)
+void memory::generate_filteredtex(device* devicePtr, VkQueue graphicsqueue, VkQueue computequeue, uint32_t width, uint32_t height, Image*& src, Image*& target, VkSampler sampler)
 {
-    create_fb_image(devicePtr->vulkanDevice, src->format, 400, 200, 1, target);
-    transitionImage(devicePtr, graphicsqueue, target->image, 1, src->layer, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+    create_fb_image(devicePtr->vulkanDevice, src->format, width, height, 1, target);
+
+    filteredtex(devicePtr, graphicsqueue, computequeue, width, height, src, target, VK_IMAGE_LAYOUT_UNDEFINED, sampler);
+}
+
+void memory::filteredtex(device* devicePtr, VkQueue graphicsqueue, VkQueue computequeue, uint32_t width, uint32_t height, Image*& src, Image*& target, VkImageLayout layout, VkSampler sampler)
+{
+    if(layout != VK_IMAGE_LAYOUT_GENERAL) transitionImage(devicePtr, graphicsqueue, target->image, 1, src->layer, VK_IMAGE_ASPECT_COLOR_BIT, layout, VK_IMAGE_LAYOUT_GENERAL);
 
     VkDescriptorSetLayout descriptorsetlayout;
     VkDescriptorSet descriptorset;
@@ -622,7 +628,7 @@ void memory::generate_filteredtex(device* devicePtr, VkQueue graphicsqueue, VkQu
         {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, {}, {sampler, target->imageView, VK_IMAGE_LAYOUT_GENERAL}},
         });
 
-    pipeline::create_pipelinelayout(devicePtr->vulkanDevice, descriptorsetlayout, pipelinelayout, {});
+    pipeline::create_pipelinelayout(devicePtr->vulkanDevice, descriptorsetlayout, pipelinelayout, { {VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(int) * 2} });
 
     VkComputePipelineCreateInfo pipelineCreateInfo{};
     pipelineCreateInfo.layout = pipelinelayout;
@@ -651,7 +657,83 @@ void memory::generate_filteredtex(device* devicePtr, VkQueue graphicsqueue, VkQu
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelinelayout, 0, 1,
         &descriptorset, 0, 0);
 
+    int pushconstant[2];
+    pushconstant[0] = width;
+    pushconstant[1] = height;
+
+    vkCmdPushConstants(commandBuffer, pipelinelayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(int) * 2, pushconstant);
+
     vkCmdDispatch(commandBuffer, target->width, target->height, 1);
+
+    devicePtr->end_commandbuffer_submit(computequeue, commandBuffer, true);
+
+    descriptor::close_descriptorset_layout(devicePtr->vulkanDevice, descriptorsetlayout);
+    pipeline::closepipeline(devicePtr->vulkanDevice, pipeline);
+    pipeline::close_pipelinelayout(devicePtr->vulkanDevice, pipelinelayout);
+    descriptor::close_descriptorpool(devicePtr->vulkanDevice, descriptorpool);
+}
+
+void memory::filteredtexArray(device* devicePtr, VkQueue graphicsqueue, VkQueue computequeue, uint32_t width, uint32_t height, Image*& src, Image*& target, VkImageLayout layout, VkSampler sampler, std::string computeshadername)
+{
+    if (layout != VK_IMAGE_LAYOUT_GENERAL) transitionImage(devicePtr, graphicsqueue, target->image, 1, src->layer, VK_IMAGE_ASPECT_COLOR_BIT, layout, VK_IMAGE_LAYOUT_GENERAL);
+
+    VkDescriptorSetLayout descriptorsetlayout;
+    VkDescriptorSet descriptorset;
+    VkPipeline pipeline;
+    VkPipelineLayout pipelinelayout;
+
+    VkDescriptorPool descriptorpool;
+    descriptor::create_descriptorpool(devicePtr->vulkanDevice, descriptorpool, {
+    { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2 },
+    { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2 },
+        });
+
+    descriptor::create_descriptorset_layout(devicePtr->vulkanDevice, descriptorsetlayout, descriptorset, descriptorpool, {
+        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0},
+        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1},
+        });
+
+    descriptor::write_descriptorset(devicePtr->vulkanDevice, descriptorset, {
+        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, {}, {sampler, src->imageView, VK_IMAGE_LAYOUT_GENERAL}},
+        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, {}, {sampler, target->imageView, VK_IMAGE_LAYOUT_GENERAL}},
+        });
+
+    pipeline::create_pipelinelayout(devicePtr->vulkanDevice, descriptorsetlayout, pipelinelayout, { {VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(int) * 2} });
+
+    VkComputePipelineCreateInfo pipelineCreateInfo{};
+    pipelineCreateInfo.layout = pipelinelayout;
+
+    pipeline::create_compute_pipeline(devicePtr->vulkanDevice, pipelineCreateInfo, pipeline, VK_NULL_HANDLE,
+        { std::string("data/shaders/" + computeshadername + ".comp.spv").c_str(), VK_SHADER_STAGE_COMPUTE_BIT });
+
+    VkCommandBuffer commandBuffer;
+    VkCommandBufferAllocateInfo commandBufferAllocateInfo = devicePtr->commandbuffer_allocateinfo(1, true);
+
+    if (vkAllocateCommandBuffers(devicePtr->vulkanDevice, &commandBufferAllocateInfo, &commandBuffer) != VK_SUCCESS)
+    {
+        std::cout << "failed to allocate command buffers!" << std::endl;
+        return;
+    }
+    VkCommandBufferBeginInfo commandBufferBeginInfo{};
+    commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+    if (vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo) != VK_SUCCESS)
+    {
+        std::cout << "failed to begin command buffer!" << std::endl;
+        return;
+    }
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelinelayout, 0, 1,
+        &descriptorset, 0, 0);
+
+    int pushconstant[2];
+    pushconstant[0] = width;
+    pushconstant[1] = height;
+
+    vkCmdPushConstants(commandBuffer, pipelinelayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(int) * 2, pushconstant);
+
+    vkCmdDispatch(commandBuffer, target->width, target->height, target->layer);
 
     devicePtr->end_commandbuffer_submit(computequeue, commandBuffer, true);
 

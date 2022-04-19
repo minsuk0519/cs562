@@ -56,10 +56,12 @@ layout(binding = 14) uniform sampler2DArray radianceProbe;
 layout(binding = 15) uniform sampler2DArray normalProbe;
 layout(binding = 16) uniform sampler2DArray distanceProbe;
 layout(binding = 17) uniform sampler2DArray lowresDistanceProbe;
+layout(binding = 18) uniform sampler2DArray irradianceProbe;
+layout(binding = 19) uniform sampler2DArray filterDistProbe;
 
 #include "include/ray.glsl"
 
-layout(binding = 18) uniform lightprobeInfo
+layout(binding = 20) uniform lightprobeInfo
 {
 	vec3 centerofProbeMap;
 	int probeGridLength;
@@ -215,7 +217,7 @@ void main()
 	float shadow = mix(0.0, calcShadow(shadow, position, depthTex), setting.shadowenable);
 	resultColor *= (1.0 - shadow);
 	
-	resultColor += calcImageBasedLight(viewDir, normal, roughness, metal, albedo, F0, ao);
+	if(setting.IBLenable == 1)resultColor += calcImageBasedLight(viewDir, normal, roughness, metal, albedo, F0, ao);
 	
 	probesMap MAP;
 	MAP.centerofProbeMap = probeInfo.centerofProbeMap;
@@ -227,9 +229,10 @@ void main()
 	MAP.max_thickness = probeInfo.max_thickness;
 	MAP.debugValue = probeInfo.debugValue;
 	
-	resultColor = computeRay(MAP, position, viewDir, normal);
+	if(setting.GIGlossyenable == 1) resultColor = computeGlossyRay(MAP, position, viewDir, normal);
+	if(setting.GIDiffuseenable == 1) resultColor += albedo * ao * computeIrradiance(MAP, position, normal);
 	
-	resultColor = tone_mapping(resultColor, setting);
+	//resultColor = tone_mapping(resultColor, setting);
     
 	outColor = vec4(resultColor, 1.0);
 }
