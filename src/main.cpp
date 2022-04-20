@@ -129,7 +129,8 @@ lightSetting lightsetting;
 ObjectProperties objproperties;
 
 bool lightspacetoggle = false;
-bool nolocallight = false;
+bool nolocallight = true;
+bool nolightprobe = true;
 helper::changeData<bool> blurshadow = true;
 helper::changeData<bool> blurao = true;
 
@@ -1285,7 +1286,7 @@ void updatebuffer()
     objects[2]->prop->albedoColor = glm::vec3(0.4f, 0.4f, 0.4f);
     objects[2]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(15.0f, 0.2f, 15.0f));
 
-    objects[3]->prop->albedoColor = glm::vec3(1.0f, 0.8f, 0.9f);
+    objects[3]->prop->albedoColor = glm::vec3(1.0f, 0.5f, 0.2f);
     objects[3]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(-7.5f, 7.5f, -5.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.2f, 15.0f, 15.0f));
     //backwall
     objects[4]->prop->albedoColor = glm::vec3(0.4f, 0.1f, 0.4f);
@@ -1312,6 +1313,7 @@ void updatebuffer()
     objects[14]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(3.25f, 0.025f, -6.0f)) * glm::rotate(glm::mat4(1.0f), PI_HALF, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(2.0f));
     objects[15]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(4.25f, 0.025f, -6.0f)) * glm::rotate(glm::mat4(1.0f), PI_HALF, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(2.0f));
 
+    objects[16]->prop->albedoColor = glm::vec3(10.0f, 0.0f, 0.0f);
     objects[16]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f));
 
     objects[17]->prop->modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(6.0f, -0.96f, 0.0f)) * glm::rotate(glm::mat4(1.0f), -PI_HALF, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.001f));
@@ -1456,7 +1458,7 @@ void setupbuffer()
     std::cout << "initializing buffers..." << std::endl;
 
     sun.direction = glm::vec3(-3.0f, -2.0f, 0.0);
-    sun.color = glm::vec3(8.0f, 8.0f, 10.0f);
+    sun.color = glm::vec3(1.0f, 1.0f, 1.0f);
 
     sun.position = glm::vec3(15.0, 10.0f, -5.0f);
     sun.radius = 10.1f;
@@ -1511,12 +1513,12 @@ void setupbuffer()
     std::cout << "creating lightprobe textures..." << std::endl;
 
     uint32_t size = lightprobeSize;
+    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16_SFLOAT, lightprobeTexSize / 16, lightprobeTexSize / 16, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST_LOW], VK_IMAGE_USAGE_TRANSFER_DST_BIT);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_B10G11R11_UFLOAT_PACK32, lightprobeIrradianceCubemapTexSize_Width, lightprobeIrradianceCubemapTexSize_Width / 2, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_IRRADIANCE]);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16_SFLOAT, lightprobeIrradianceCubemapTexSize_Width, lightprobeIrradianceCubemapTexSize_Width / 2, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_FILTERDISTANCE]);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_B10G11R11_UFLOAT_PACK32, lightprobeTexSize, lightprobeTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_RADIANCE]);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R8G8_UNORM, lightprobeTexSize, lightprobeTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_NORM]);
     memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16_SFLOAT, lightprobeTexSize, lightprobeTexSize, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST], VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
-    memPtr->create_fb_image(devicePtr->vulkanDevice, VK_FORMAT_R16G16_SFLOAT, lightprobeTexSize / 16, lightprobeTexSize / 16, size, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST_LOW], VK_IMAGE_USAGE_TRANSFER_DST_BIT);
     memPtr->transitionImage(devicePtr, vulkanGraphicsQueue, imagebuffers[IMAGE_INDEX_LIGHTPROBE_DIST_LOW]->image, 1, size, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     std::cout << "created lightprobe cubemap textures..." << std::endl;
@@ -1669,7 +1671,7 @@ void setupbuffer()
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(Projection), 1, uniformbuffers[UNIFORM_INDEX_PROJECTION]);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(ObjectProperties)*/128, 128, uniformbuffers[UNIFORM_INDEX_OBJECT]);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(ObjectProperties)*/128, 1024, uniformbuffers[UNIFORM_INDEX_OBJECT_DEBUG]);
-    memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(lightSetting)*/36, 1, uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING]);
+    memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(lightSetting)*/40, 1, uniformbuffers[UNIFORM_INDEX_LIGHT_SETTING]);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(camera), 1, uniformbuffers[UNIFORM_INDEX_CAMERA]);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, /*sizeof(light)*/64, 64, uniformbuffers[UNIFORM_INDEX_LIGHT]);
     memPtr->create_buffer(devicePtr->vulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sizeof(shadow), 1, uniformbuffers[UNIFORM_INDEX_SHADOW_SETTING]);
@@ -2347,6 +2349,7 @@ int main(void)
                     else if (ImGui::MenuItem("Shadow Map##Target", "", deferred[outputMode::SHADOW_MAP])) lightsetting.outputTex = outputMode::SHADOW_MAP;
                     else if (ImGui::MenuItem("Only Shadow##Target", "", deferred[outputMode::ONLY_SHADOW])) lightsetting.outputTex = outputMode::ONLY_SHADOW;
                     else if (ImGui::MenuItem("Ambient Occulusion##Target", "", deferred[outputMode::ABIENTOCCULUSION])) lightsetting.outputTex = outputMode::ABIENTOCCULUSION;
+                    else if (ImGui::MenuItem("LightProbe##Target", "", deferred[outputMode::LIHGTPROBE_RADIANCE])) lightsetting.outputTex = outputMode::LIHGTPROBE_RADIANCE;
 
                     ImGui::EndMenu();
                 }
@@ -2394,12 +2397,12 @@ int main(void)
                 ImGui::DragFloat("MinThickness##GIPROBE", &lightprobeInfo.minThickness, 0.001f);
                 ImGui::DragFloat("MaxThickness##GIPROBE", &lightprobeInfo.maxThickness, 0.001f);
                 ImGui::DragFloat("Debug##GIPROBE", &lightprobeInfo.debugValue, 0.01f);
-                bool giglossy = lightsetting.GIglossyenable;
-                bool gidiffuse = lightsetting.GIdiffuseenable;
-                ImGui::Checkbox("GlossyEnable##GIPROBE", &giglossy);
-                ImGui::Checkbox("DiffuseEnable##GIPROBE", &gidiffuse);
-                lightsetting.GIglossyenable = giglossy;
-                lightsetting.GIdiffuseenable = gidiffuse;
+                ImGui::DragFloat("GlossyValue##GIPROBE", &lightsetting.GIglossyvalue);
+                ImGui::DragFloat("DiffuseValue##GIPROBE", &lightsetting.GIdiffusevalue);
+                bool direct = lightsetting.onlyDirectLight;
+                ImGui::Checkbox("OnlyDirect##GIPROBE", &direct);
+                lightsetting.onlyDirectLight = direct;
+                ImGui::Checkbox("HideLightProbe##GIPROBE", &nolightprobe);
 
                 if (ImGui::Button("RebakeLightingMap##GIPROBE"))
                 {
@@ -2900,6 +2903,7 @@ int main(void)
             }
 
             //draw light probe
+            if(!nolightprobe)
             {
                 vkCmdBindPipeline(vulkanCommandBuffers[commandbufferindex], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelines[render::PIPELINE_DIFFUSE]);
 

@@ -29,20 +29,23 @@ enum outputMode
 	SHADOW_MAP = 5,
 	ONLY_SHADOW = 6,
 	ABIENTOCCULUSION = 7,
+	LIHGTPROBE_RADIANCE = 8,
 	OUTPUTMODE_MAX,
 };
 
 struct lightSetting
 {
 	outputMode outputTex;
-	bool shadowenable = true;
+	bool shadowenable = false;
 	float gamma = 1.0f;
 	float exposure = 1.0f;
 	bool highdynamicrange = true;
 	int aoenable = 1;
-	int IBLenable = 1;
-	int GIdiffuseenable = 1;
-	int GIglossyenable = 1;
+	int IBLenable = 0;
+	float GIdiffusevalue = 2.00f;
+	float GIglossyvalue = 0.05f;
+
+	int onlyDirectLight = 0;
 };
 
 struct camera

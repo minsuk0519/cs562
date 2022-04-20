@@ -178,6 +178,12 @@ void main()
 		outColor = vec4(vec3(ao), 1.0);
 		return;
 	}
+	else if(setting.outputTex == 8)
+	{
+		vec3 radiance = texture(radianceProbe, vec3(outTexcoord, probeInfo.debugValue)).rgb;
+		outColor = vec4(radiance, 1.0);
+		return;
+	}
 	
 	if(length(texture(normTex, outTexcoord).xyz) < 0.1)
 	{
@@ -213,6 +219,9 @@ void main()
 	vec3 lightDir = normalize(-sun.direction);
 	
 	resultColor += calcLight(lightDir, viewDir, normal, albedo, sun.color, roughness, metal, F0, ao);
+	
+	if(setting.onlyDirect == 1) resultColor *= dot(normal, lightDir);
+	
 	resultColor = max(resultColor, 0.0);
 	float shadow = mix(0.0, calcShadow(shadow, position, depthTex), setting.shadowenable);
 	resultColor *= (1.0 - shadow);
@@ -229,8 +238,8 @@ void main()
 	MAP.max_thickness = probeInfo.max_thickness;
 	MAP.debugValue = probeInfo.debugValue;
 	
-	if(setting.GIGlossyenable == 1) resultColor += computeGlossyRay(MAP, position, viewDir, normal);
-	if(setting.GIDiffuseenable == 1) resultColor += albedo * computeIrradiance(MAP, position, normal);
+	resultColor += setting.GIGlossyvalue * (1.0 - roughness) * computeGlossyRay(MAP, position, viewDir, normal);
+	resultColor += setting.GIDiffusevalue * albedo * ao * computeIrradiance(MAP, position, normal);
 	
 	resultColor = tone_mapping(resultColor, setting);
     

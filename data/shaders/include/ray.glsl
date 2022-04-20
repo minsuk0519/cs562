@@ -526,7 +526,7 @@ vec3 computeIrradiance(probesMap MAP, vec3 pos, vec3 norm)
         sumIrradiance += weight * probeIrradiance;
     }
 
-    return MAP.debugValue * 2.0 * sumIrradiance / (PI * sumWeight);
+    return sumIrradiance / (sumWeight * 10.0);
 }
 
 #endif

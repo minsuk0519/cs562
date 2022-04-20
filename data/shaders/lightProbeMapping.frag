@@ -54,7 +54,7 @@ void main()
 	result += calcLight(lightDir, viewDir, normal, albedo, sun.color, roughness, metal, F0, 1.0);
 	
 	//lamberitian
-	result *= clamp(dot(normal, lightDir), 0.0, 1.0);
+	//result *= clamp(dot(normal, lightDir), 0.0, 1.0);
 	result += albedo / PI;
    
 	radianceColor = vec4(result, 1.0);

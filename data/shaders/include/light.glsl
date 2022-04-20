@@ -13,8 +13,10 @@ struct lightsetting
 	int aoenable;
 	int IBLenable;
 	
-	int GIDiffuseenable;
-	int GIGlossyenable;
+	float GIDiffusevalue;
+	float GIGlossyvalue;
+	
+	int onlyDirect;
 };
 
 struct light
@@ -165,6 +167,21 @@ vec3 calcLight(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 albedo, vec3 light
 	kD *= 1.0 - metal;
 
 	return (ao * kD * albedo / PI + specular) * NdotL * lightColor;// * radiance;
+}
+
+vec3 calcSpecularOnly(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 albedo, vec3 lightColor, float roughness, float metal, vec3 F0, float ao)
+{
+	vec3 halfway = normalize(viewDir + lightDir);
+	
+	float NdotV = max(dot(normal, viewDir), 0.0);
+	float NdotL = max(dot(normal, lightDir), 0.0);
+	float NdotH = max(dot(normal, halfway), 0.0);
+
+	float D = calNormalDistribution_GGX(NdotH, roughness);
+	float G = calOptimizedGeometry(NdotV, NdotL, roughness);      
+	vec3 F = calFresnel(NdotH, F0);
+			   
+	return lightColor * D * G * F / (4.0 * NdotV + 0.0001);
 }
 
 vec3 tone_mapping(vec3 C, lightsetting setting)
