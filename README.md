@@ -1,4 +1,8 @@
-### cs562
+### graphics engine
+This project is academic project for my Advanced Real-Time Rendering Techniques(CS562) class
+I start the project with Vulkan API.
+
+The following shows each section that I've implemented for the project.
 
 # project 1 : deferred shading
 [Project 1](https://github.com/minsuk0519/cs562/blob/main/report/CS562_Project1_m.kim.pdf)
