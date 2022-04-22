@@ -1,8 +1,8 @@
 #version 460
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
-layout (binding = 0, rgba32f) uniform image2D readTex;
-layout (binding = 1, rgba32f) uniform writeonly image2D outTex;
+layout (binding = 0, rgba32f) uniform image2DArray readTex;
+layout (binding = 1, rgba32f) uniform writeonly image2DArray outTex;
 
 const float PI = 3.1415926536;
 
@@ -20,7 +20,7 @@ const float A[3] = {PI, 2 * PI / 3, PI / 4};
 void main()
 {
 	const float deltathetaphi = 2 * PI * PI / (height * width);
-	vec2 readsize = imageSize(readTex);
+	vec2 readsize = imageSize(readTex).xy;
 	vec2 scale = readsize / vec2(width, height);
 	
 	vec3 L[9];
@@ -34,7 +34,7 @@ void main()
 	{
 		for(int j = 0; j < height; ++j)
 		{
-			ivec2 readPos = ivec2(i * scale.x, j * scale.y);
+			ivec3 readPos = ivec3(i * scale.x, j * scale.y, gl_GlobalInvocationID.z);
 
 			vec4 rgba = imageLoad(readTex, readPos);
 			
@@ -93,5 +93,6 @@ void main()
 	result += E[7] * 0.5 * sqrt(15 / PI) * x * z;
 	result += E[8] * 0.25 * sqrt(15 / PI) * (x * x - y * y);
 	
-	imageStore(outTex, ivec2(gl_GlobalInvocationID.xy), vec4(result, 1.0));
+	//imageStore(outTex, ivec3(gl_GlobalInvocationID.xyz), imageLoad(readTex, ivec3(gl_GlobalInvocationID.xyz)));
+	imageStore(outTex, ivec3(gl_GlobalInvocationID.xyz), vec4(result, 1.0));
 }

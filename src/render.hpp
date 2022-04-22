@@ -26,9 +26,9 @@ namespace pipeline
 	VkVertexInputBindingDescription getVertexinputbindingDescription(uint32_t stride);
 	VkPipelineVertexInputStateCreateInfo getVertexinputAttributeDescription(VkVertexInputBindingDescription* vertexinputbinding, std::vector<VkVertexInputAttributeDescription>& vertexinputdescription);
 
-	bool create_pipieline(VkDevice device, VkGraphicsPipelineCreateInfo& pipelineCreateInfo, VkPipeline& pipeline, VkPipelineCache pipelinecache, std::vector<shaderinput> shaderinfos);
+	bool create_pipeline(VkDevice device, VkGraphicsPipelineCreateInfo& pipelineCreateInfo, VkPipeline& pipeline, VkPipelineCache pipelinecache, std::vector<shaderinput> shaderinfos);
 	bool create_compute_pipeline(VkDevice device, VkComputePipelineCreateInfo& pipelinecreateInfo, VkPipeline& pipeline, VkPipelineCache pipelinecache, shaderinput shaderinfo);
-	bool create_pipelinelayout(VkDevice device, VkDescriptorSetLayout descriptorsetlayout, VkPipelineLayout& pipelinelayout);
+	bool create_pipelinelayout(VkDevice device, VkDescriptorSetLayout descriptorsetlayout, VkPipelineLayout& pipelinelayout, std::vector<VkPushConstantRange> pushconstants);
 
 	void closepipeline(VkDevice device, VkPipeline& pipeline);
 	void close_pipelinelayout(VkDevice device, VkPipelineLayout& pipelinelayout);
@@ -54,7 +54,7 @@ namespace renderpass
 	};
 
 	bool create_renderpass(VkDevice device, VkRenderPass& renderpass, std::vector<attachmentDesc> attachmentDescriptions);
-	bool create_framebuffer(VkDevice device, VkRenderPass renderpass, VkFramebuffer& framebuffer, uint32_t width, uint32_t height, std::vector<VkImageView> imageviews);
+	bool create_framebuffer(VkDevice device, VkRenderPass renderpass, VkFramebuffer& framebuffer, std::vector<Image*> images);
 
 	void close_renderpass(VkDevice device, VkRenderPass& renderpass);
 	void close_framebuffer(VkDevice device, VkFramebuffer& framebuffer);
@@ -101,6 +101,9 @@ namespace render
 		DESCRIPTOR_SKYDOME,
 		DESCRIPTOR_AO,
 		DESCRIPTOR_AO_BLUR,
+		DESCRIPTOR_LIGHTPROBE_MAP,
+		DESCRIPTOR_LIGHTPROBE_MAP_FILTER,
+		DESCRIPTOR_LIGHTPROBE_MAP_FILTER_IRRADIANCE,
 		DESCRIPTOR_MAX,
 	};
 
@@ -118,6 +121,9 @@ namespace render
 		PIPELINE_AO,
 		PIPELINE_AO_BLUR_VERTICAL,
 		PIPELINE_AO_BLUR_HORIZONTAL,
+		PIPELINE_LIGHTPROBE_MAP,
+		PIPELINE_LIGHTPROBE_MAP_FILTER,
+		PIPELINE_LIGHTPROBE_MAP_FILTER_IRRADIANCE,
 		PIPELINE_MAX,
 	};
 
@@ -132,20 +138,25 @@ namespace render
 		SEMAPHORE_GBUFFER,
 		SEMAPHORE_SHADOWMAP_BLUR_VERTICAL,
 		SEMAPHORE_SHADOWMAP_BLUR_HORIZONTAL,
+		SEMAPHORE_LIGHTPROBE_MAP,
+		SEMAPHORE_LIGHTPROBE_MAP_FILTER,
 		SEMAPHORE_MAX,
 	};
 
-	//=======vector=======
-	//commandbuffer
-	enum COMMANDBUFFER_INDEX
+	//renderpass
+	enum RENDERPASS_INDEX
 	{
-		COMMANDBUFFER_GBUFFER = 0,
-		COMMANDBUFFER_SHADOWMAP,
-		COMMANDBUFFER_AO,
-		COMMANDBUFFER_SWAPCHAIN,
-		COMMANDBUFFER_MAX,
+		RENDERPASS_GBUFFER = 0,
+		RENDERPASS_SHADOWMAP,
+		RENDERPASS_AO,
+		RENDERPASS_LIGHTPROBE,
+		RENDERPASS_LIGHTPROBE_FILTER,
+		RENDERPASS_LIGHTPROBE_FILTER_IRRADIANCE,
+		RENDERPASS_SWAPCHAIN,
+		RENDERPASS_MAX,
 	};
 
+	//compute command buffer
 	enum COMPUTECMDBUFFER_INDEX
 	{
 		COMPUTECMDBUFFER_BLUR_VERTICAL = 0,
@@ -155,13 +166,29 @@ namespace render
 		COMPUTECMDBUFFER_MAX,
 	};
 
-	//renderpass(array) & framebuffer(vector)
-	enum RENDERPASS_INDEX
+	//=======vector=======
+	//commandbuffer
+	enum COMMANDBUFFER_INDEX
 	{
-		RENDERPASS_GBUFFER = 0,
-		RENDERPASS_SHADOWMAP,
-		RENDERPASS_AO,
-		RENDERPASS_SWAPCHAIN,
-		RENDERPASS_MAX,
+		COMMANDBUFFER_GBUFFER = 0,
+		COMMANDBUFFER_SHADOWMAP,
+		COMMANDBUFFER_AO,
+		COMMANDBUFFER_LIGHTPROBE,
+		COMMANDBUFFER_LIGHTPROBE_FILTER,
+		COMMANDBUFFER_LIGHTPROBE_FILTER_IRRADIANCE,
+		COMMANDBUFFER_SWAPCHAIN,
+	};
+
+	//framebuffer
+	//assume there will be no larger than 10 swapchain images on device
+	enum FRAMEBUFFER_INDEX
+	{
+		FRAMEBUFFER_GBUFFER = 0,
+		FRAMEBUFFER_SHADOWMAP,
+		FRAMEBUFFER_AO,
+		FRAMEBUFFER_SWAPCHAIN,
+		FRAMEBUFFER_LIGHTPROBE = FRAMEBUFFER_SWAPCHAIN + 10,
+		FRAMEBUFFER_LIGHTPROBE_FILTER,
+		FRAMEBUFFER_LIGHTPROBE_FILTER_IRRADIANCE,
 	};
 }

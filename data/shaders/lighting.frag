@@ -52,9 +52,32 @@ layout(binding = 13) uniform aoConstant
 	int n;
 } ambientocclusion;
 
+layout(binding = 14) uniform sampler2DArray radianceProbe;
+layout(binding = 15) uniform sampler2DArray normalProbe;
+layout(binding = 16) uniform sampler2DArray distanceProbe;
+layout(binding = 17) uniform sampler2DArray lowresDistanceProbe;
+layout(binding = 18) uniform sampler2DArray irradianceProbe;
+layout(binding = 19) uniform sampler2DArray filterDistProbe;
+
+#include "include/ray.glsl"
+
+layout(binding = 20) uniform lightprobeInfo
+{
+	vec3 centerofProbeMap;
+	int probeGridLength;
+	float probeUnitDist;
+	int textureSize;
+	int lowtextureSize;
+	
+	float min_thickness;
+	float max_thickness;
+	
+	float debugValue;
+} probeInfo;
+
 vec3 calcImageBasedLight(vec3 viewDir, vec3 normal, float roughness, float metal, vec3 albedo, vec3 F0, float ao)
 {
-	vec3 R = 2 * dot(normal, viewDir) * normal - viewDir;
+	vec3 R = (2 * dot(normal, viewDir) * normal - viewDir);
 	vec3 A = normalize(vec3(R.z, 0, -R.x));
 	vec3 B = normalize(cross(R, A));
 	
@@ -155,6 +178,12 @@ void main()
 		outColor = vec4(vec3(ao), 1.0);
 		return;
 	}
+	else if(setting.outputTex == 8)
+	{
+		vec3 radiance = texture(radianceProbe, vec3(outTexcoord, probeInfo.debugValue)).rgb;
+		outColor = vec4(radiance, 1.0);
+		return;
+	}
 	
 	if(length(texture(normTex, outTexcoord).xyz) < 0.1)
 	{
@@ -190,11 +219,27 @@ void main()
 	vec3 lightDir = normalize(-sun.direction);
 	
 	resultColor += calcLight(lightDir, viewDir, normal, albedo, sun.color, roughness, metal, F0, ao);
+	
+	if(setting.onlyDirect == 1) resultColor *= dot(normal, lightDir);
+	
 	resultColor = max(resultColor, 0.0);
 	float shadow = mix(0.0, calcShadow(shadow, position, depthTex), setting.shadowenable);
 	resultColor *= (1.0 - shadow);
 	
-	resultColor += calcImageBasedLight(viewDir, normal, roughness, metal, albedo, F0, ao);
+	if(setting.IBLenable == 1)resultColor += calcImageBasedLight(viewDir, normal, roughness, metal, albedo, F0, ao);
+	
+	probesMap MAP;
+	MAP.centerofProbeMap = probeInfo.centerofProbeMap;
+	MAP.probeGridLength = probeInfo.probeGridLength;
+	MAP.probeUnitDist = probeInfo.probeUnitDist;
+	MAP.textureSize = probeInfo.textureSize;
+	MAP.lowtextureSize = probeInfo.lowtextureSize;
+	MAP.min_thickness = probeInfo.min_thickness;
+	MAP.max_thickness = probeInfo.max_thickness;
+	MAP.debugValue = probeInfo.debugValue;
+	
+	resultColor += setting.GIGlossyvalue * (1.0 - roughness) * computeGlossyRay(MAP, position, viewDir, normal);
+	resultColor += setting.GIDiffusevalue * albedo * ao * computeIrradiance(MAP, position, normal);
 	
 	resultColor = tone_mapping(resultColor, setting);
     

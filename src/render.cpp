@@ -7,7 +7,7 @@
 
 #include <glm/glm.hpp>
 
-bool pipeline::create_pipieline(VkDevice device, VkGraphicsPipelineCreateInfo& pipelineCreateInfo, VkPipeline& pipeline, VkPipelineCache pipelinecache, std::vector<shaderinput> shaderinfos)
+bool pipeline::create_pipeline(VkDevice device, VkGraphicsPipelineCreateInfo& pipelineCreateInfo, VkPipeline& pipeline, VkPipelineCache pipelinecache, std::vector<shaderinput> shaderinfos)
 {
     pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipelineCreateInfo.flags = 0;
@@ -30,8 +30,10 @@ bool pipeline::create_pipieline(VkDevice device, VkGraphicsPipelineCreateInfo& p
         return false;
     }
 
-    vkDestroyShaderModule(device, shadercreateinfos[0].module, VK_NULL_HANDLE);
-    vkDestroyShaderModule(device, shadercreateinfos[1].module, VK_NULL_HANDLE);
+    for (VkPipelineShaderStageCreateInfo& shadercreateinfo : shadercreateinfos)
+    {
+        vkDestroyShaderModule(device, shadercreateinfo.module, VK_NULL_HANDLE);
+    }
 
     return true;
 }
@@ -57,12 +59,14 @@ bool pipeline::create_compute_pipeline(VkDevice device, VkComputePipelineCreateI
     return true;
 }
 
-bool pipeline::create_pipelinelayout(VkDevice device, VkDescriptorSetLayout descriptorsetlayout, VkPipelineLayout& pipelinelayout)
+bool pipeline::create_pipelinelayout(VkDevice device, VkDescriptorSetLayout descriptorsetlayout, VkPipelineLayout& pipelinelayout, std::vector<VkPushConstantRange> pushconstants)
 {
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{};
     pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutCreateInfo.setLayoutCount = 1;
     pipelineLayoutCreateInfo.pSetLayouts = &descriptorsetlayout;
+    pipelineLayoutCreateInfo.pushConstantRangeCount = static_cast<uint32_t>(pushconstants.size());
+    pipelineLayoutCreateInfo.pPushConstantRanges = pushconstants.data();
 
     if (vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, VK_NULL_HANDLE, &pipelinelayout) != VK_SUCCESS)
     {
@@ -297,17 +301,28 @@ bool renderpass::create_renderpass(VkDevice device, VkRenderPass& renderpass, st
     return true;
 }
 
-bool renderpass::create_framebuffer(VkDevice device, VkRenderPass renderpass, VkFramebuffer& framebuffer, uint32_t width, uint32_t height, std::vector<VkImageView> imageviews)
+bool renderpass::create_framebuffer(VkDevice device, VkRenderPass renderpass, VkFramebuffer& framebuffer, std::vector<Image*> images)
 {
     VkFramebufferCreateInfo frameBufferCreateInfo = {};
     frameBufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     frameBufferCreateInfo.pNext = NULL;
     frameBufferCreateInfo.renderPass = renderpass;
-    frameBufferCreateInfo.attachmentCount = static_cast<uint32_t>(imageviews.size());
+    frameBufferCreateInfo.attachmentCount = static_cast<uint32_t>(images.size());
+    std::vector<VkImageView> imageviews;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    uint32_t layer = 0;
+    for (Image* image : images)
+    {
+        imageviews.push_back(image->imageView);
+        width = image->width;
+        height = image->height;
+        layer = image->layer;
+    }
     frameBufferCreateInfo.pAttachments = imageviews.data();
     frameBufferCreateInfo.width = width;
     frameBufferCreateInfo.height = height;
-    frameBufferCreateInfo.layers = 1;
+    frameBufferCreateInfo.layers = layer;
 
     if (vkCreateFramebuffer(device, &frameBufferCreateInfo, nullptr, &framebuffer) != VK_SUCCESS)
     {

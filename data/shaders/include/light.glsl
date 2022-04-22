@@ -11,6 +11,12 @@ struct lightsetting
 	float exposure;
 	int highdynamicrange;
 	int aoenable;
+	int IBLenable;
+	
+	float GIDiffusevalue;
+	float GIGlossyvalue;
+	
+	int onlyDirect;
 };
 
 struct light
@@ -90,12 +96,6 @@ float calGeometry_Beckman(float VdotN, float roughness)
 
 float calGeometry(float NdotV, float NdotL, float roughness)
 {
-	//float alphaplusone = (roughness + 1.0);
-    //float k = (alphaplusone * alphaplusone) / 8.0;
-
-    //float viewG = NdotV / (NdotV * (1.0 - k) + k);
-    //float lightG = NdotL / (NdotL * (1.0 - k) + k);
-
 	//phong
 	//float viewG = calGeometry_Phong(NdotV, roughness);
 	//float lightG = calGeometry_Phong(NdotL, roughness);
@@ -105,6 +105,17 @@ float calGeometry(float NdotV, float NdotL, float roughness)
 	//Beckman
 	//float viewG = calGeometry_Beckman(NdotV, roughness);
 	//float lightG = calGeometry_Beckman(NdotL, roughness);
+	
+	return viewG * lightG;
+}
+
+float calOptimizedGeometry(float NdotV, float NdotL, float roughness)
+{
+	float alphaplusone = (roughness + 1.0);
+    float k = (alphaplusone * alphaplusone) / 8.0;
+
+    float viewG = NdotV / (NdotV * (1.0 - k) + k);
+    float lightG = NdotL / (NdotL * (1.0 - k) + k);
 	
 	return viewG * lightG;
 }
@@ -146,7 +157,7 @@ vec3 calcLight(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 albedo, vec3 light
 	float NdotH = max(dot(normal, halfway), 0.0);
 
 	float D = calNormalDistribution_GGX(NdotH, roughness);
-	float G = calGeometry(NdotV, NdotL, roughness);      
+	float G = calOptimizedGeometry(NdotV, NdotL, roughness);      
 	vec3 F = calFresnel(NdotH, F0);
 			   
 	vec3 specular = D * G * F / (4.0 * NdotV * NdotL + 0.0001);
@@ -158,10 +169,130 @@ vec3 calcLight(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 albedo, vec3 light
 	return (ao * kD * albedo / PI + specular) * NdotL * lightColor;// * radiance;
 }
 
+vec3 calcSpecularOnly(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 albedo, vec3 lightColor, float roughness, float metal, vec3 F0, float ao)
+{
+	vec3 halfway = normalize(viewDir + lightDir);
+	
+	float NdotV = max(dot(normal, viewDir), 0.0);
+	float NdotL = max(dot(normal, lightDir), 0.0);
+	float NdotH = max(dot(normal, halfway), 0.0);
+
+	float D = calNormalDistribution_GGX(NdotH, roughness);
+	float G = calOptimizedGeometry(NdotV, NdotL, roughness);      
+	vec3 F = calFresnel(NdotH, F0);
+			   
+	return lightColor * D * G * F / (4.0 * NdotV + 0.0001);
+}
+
 vec3 tone_mapping(vec3 C, lightsetting setting)
 {
 	vec3 eC = setting.exposure * C;
 	return mix(C, pow(eC / (eC + vec3(1.0)), vec3(setting.gamma / 2.2)), setting.highdynamicrange);
+}
+
+vec2 toOctahedral(vec3 v) 
+{
+    float positive = abs(v.x) + abs(v.y) + abs(v.z);
+    vec2 result = v.xy * (1.0 / positive);
+   
+	if (v.z < 0.0) 
+	{
+		float x = (result.x >= 0.0) ? 1.0 : -1.0;
+		float y = (result.y >= 0.0) ? 1.0 : -1.0;
+        result = (1.0 - abs(result.yx)) * vec2(x,y);
+    }
+	
+	result = vec2(0.5) + (result * 0.5);
+	
+    return result;
+}
+
+//vec2 toOctahedral(vec3 v) 
+//{
+//	v /= dot( vec3(1), abs(v) );
+//
+//    // out-folding of the downward faces
+//    if ( v.y < 0.0 ) v.xy = (1.0 - abs(v.zx)) * sign(v.xz);
+//
+//	return v.xy * 0.5 + 0.5;
+//}
+
+vec3 fromOctahedral(vec2 uv) 
+{
+	vec3 position = vec3(2.0 * (uv) - vec2(1.0), 0);                
+
+    vec2 absolute = abs(position.xy);
+    position.z = 1.0 - absolute.x - absolute.y;
+
+    if(position.z < 0) 
+	{
+		vec2 signvec;
+		signvec.x = (position.x >= 0.0) ? 1.0 : -1.0;
+		signvec.y = (position.y >= 0.0) ? 1.0 : -1.0;
+        position.xy = signvec * (vec2(1.0) - absolute.yx);
+    }
+
+    return position;
+}
+
+//vec3 fromOctahedral(vec2 uv) 
+//{
+//    uv = uv * 2.0 - 1.0;
+//
+//    vec2 abs_co = abs(uv);
+//    vec3 v = vec3(uv, 1.0 - (abs_co.x + abs_co.y));
+//
+//    if ( abs_co.x + abs_co.y > 1.0 ) {
+//        v.xy = (abs(uv.yx) - 1.0) * -sign(uv.xy);
+//    }
+//
+//    return v;
+//}
+
+vec3 getCubemapCoord(vec3 v)
+{
+	vec2 result;
+	float z_value = 0.0f;
+
+	vec3 absolute = vec3(abs(v.x), abs(v.y), abs(v.z));
+	if ((v.x > 0) && (absolute.x >= absolute.y) && (absolute.x >= absolute.z))
+	{
+		result = vec2(-v.z, v.y);
+		result = 0.5f * (result / absolute.x + 1.0);
+		z_value = 1.0f;
+	}
+	else if ((v.x <= 0) && (absolute.x >= absolute.y) && (absolute.x >= absolute.z))
+	{
+		result = vec2(v.z, v.y);
+		result = 0.5f * (result / absolute.x + 1.0);
+		z_value = 0.0f;
+	}
+	else if ((v.y > 0) && (absolute.y >= absolute.x) && (absolute.y >= absolute.z))
+	{
+		result = vec2(v.x, -v.z);
+		result = 0.5f * (result / absolute.y + 1.0);
+		z_value = 2.0f;
+	}
+	else if ((v.y <= 0) && (absolute.y >= absolute.x) && (absolute.y >= absolute.z))
+	{
+		result = vec2(v.x, v.z);
+		result = 0.5f * (result / absolute.y + 1.0);
+		z_value = 3.0f;
+	}
+	else if ((v.z > 0) && (absolute.z >= absolute.x) && (absolute.z >= absolute.y))
+	{
+		result = vec2(v.x, v.y);
+		result = 0.5f * (result / absolute.z + 1.0);
+		z_value = 5.0f;
+	}
+	else if ((v.z < 0) && (absolute.z >= absolute.x) && (absolute.z >= absolute.y))
+	{
+		result = vec2(-v.x, v.y);
+		result = 0.5f * (result / absolute.z + 1.0);
+		z_value = 4.0f;
+	}
+	
+	return vec3(result, z_value);
 }
 
 #endif

@@ -29,17 +29,23 @@ enum outputMode
 	SHADOW_MAP = 5,
 	ONLY_SHADOW = 6,
 	ABIENTOCCULUSION = 7,
+	LIHGTPROBE_RADIANCE = 8,
 	OUTPUTMODE_MAX,
 };
 
 struct lightSetting
 {
 	outputMode outputTex;
-	bool shadowenable = true;
+	bool shadowenable = false;
 	float gamma = 1.0f;
 	float exposure = 1.0f;
 	bool highdynamicrange = true;
 	int aoenable = 1;
+	int IBLenable = 0;
+	float GIdiffusevalue = 2.00f;
+	float GIglossyvalue = 0.05f;
+
+	int onlyDirectLight = 0;
 };
 
 struct camera
@@ -148,10 +154,33 @@ struct GaussianWeight
 	}
 };
 
+struct lightprobe_proj
+{
+	glm::mat4 projs[6];
+	glm::vec3 pos;
+
+	int id = 0;
+};
+
+struct lightprobeinfo
+{
+	glm::vec3 centerofProbeMap;
+	unsigned int probeGridLength;
+	float probeUnitDist;
+	unsigned int textureSize;
+	unsigned int lowtextureSize;
+
+	float minThickness;
+	float maxThickness;
+
+	float debugValue;
+};
+
 enum UNIFORM_INDEX
 {
 	UNIFORM_INDEX_PROJECTION = 0,
 	UNIFORM_INDEX_OBJECT,
+	UNIFORM_INDEX_OBJECT_DEBUG,
 	UNIFORM_INDEX_LIGHT_SETTING,
 	UNIFORM_INDEX_CAMERA,
 	UNIFORM_INDEX_LIGHT,
@@ -161,6 +190,8 @@ enum UNIFORM_INDEX
 	UNIFORM_INDEX_HAMMERSLEYBLOCK,
 	UNIFORM_INDEX_GAUSSIANWEIGHT,
 	UNIFORM_INDEX_AO_CONSTANT,
+	UNIFORM_INDEX_LIGHTPROBE_PROJ,
+	UNIFORM_INDEX_LIGHTPROBE_INFO,
 	UNIFORM_INDEX_MAX,
 };
 
@@ -193,6 +224,16 @@ enum IMAGE_INDEX
 	IMAGE_INDEX_SHADOWMAP_DEPTH,
 	IMAGE_INDEX_SKYDOME,
 	IMAGE_INDEX_SKYDOME_IRRADIANCE,
+	IMAGE_INDEX_LIGHTPROBE_RADIANCE,
+	IMAGE_INDEX_LIGHTPROBE_CUBEMAP_RADIANCE,
+	IMAGE_INDEX_LIGHTPROBE_NORM,
+	IMAGE_INDEX_LIGHTPROBE_CUBEMAP_NORM,
+	IMAGE_INDEX_LIGHTPROBE_DIST,
+	IMAGE_INDEX_LIGHTPROBE_DIST_LOW,
+	IMAGE_INDEX_LIGHTPROBE_CUBEMAP_DIST,
+	IMAGE_INDEX_LIGHTPROBE_DEPTH,
+	IMAGE_INDEX_LIGHTPROBE_IRRADIANCE,
+	IMAGE_INDEX_LIGHTPROBE_FILTERDISTANCE,
 	IMAGE_INDEX_MAX,
 };
 
